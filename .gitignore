@@ -1,0 +1,85 @@
+# macOS system files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Thumbnails
+._*
+
+# Icon must end with two \r
+Icon
+
+# Files that might appear on external volumes
+.Spotlight-V100
+.Trashes
+
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+*.xcuserdata/
+*.xcscmblueprint
+
+# Xcode workspace and project user data (optional, if you want to share user settings)
+*.xcworkspace/contents.xcworkspacedata
+!default.xcworkspace
+
+# CMake build directories
+build/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+*.cmake
+
+# Executables and object files
+*.o
+*.obj
+*.exe
+*.out
+*.app
+*.so
+*.dylib
+*.dll
+
+# Backup and temp files
+*~
+*.swp
+*.swo
+*.tmp
+
+# Logs
+*.log
+
+# VSCode settings (if you ever use it)
+.vscode/
+
+# Testing framework (if you add GoogleTest or similar)
+googletest/
+
+# Others
+*.ipch
+*.pch
+
+# Compiled binaries
+*.bin
+
+# Xcode index files and logs
+*.xcindex
+*.xcactivitylog
+
+# Ignore user-specific files
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+*.pbxuser
+*.user
+*.userprefs
+
+# Ignore coverage reports
+*.gcda
+*.gcno
+*.gcov
+
+# Ignore CMake generated files (if you want to keep your CMakeLists.txt, but not build outputs)
+CMakeLists.txt.user
