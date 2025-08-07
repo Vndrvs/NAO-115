@@ -16,11 +16,10 @@
 		FACEFF362E3AABF000C88910 /* evaluator.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FACEFF342E3AABF000C88910 /* evaluator.cpp */; };
 		FACEFF3B2E3AAC2B00C88910 /* test_trainer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FACEFF3A2E3AAC2B00C88910 /* test_trainer.cpp */; };
 		FACEFF3D2E3AAC3900C88910 /* test_utils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FACEFF3C2E3AAC3900C88910 /* test_utils.cpp */; };
-		FACEFF4C2E3B569E00C88910 /* preflop_encoder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FACEFF292E3AAA5E00C88910 /* preflop_encoder.cpp */; };
 		FACEFF582E3B657C00C88910 /* preflop_encoder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FACEFF292E3AAA5E00C88910 /* preflop_encoder.cpp */; };
 		FACEFF592E3B657C00C88910 /* preflop_encoder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FACEFF292E3AAA5E00C88910 /* preflop_encoder.cpp */; };
-		FACEFF5A2E3B659700C88910 /* test_preflop_encoder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FACEFF382E3AAC1C00C88910 /* test_preflop_encoder.cpp */; };
 		FACEFF5B2E3B665800C88910 /* encode_bench.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FACEFF3E2E3AAC4800C88910 /* encode_bench.cpp */; };
+		FACEFF5D2E44866500C88910 /* test_state_applyAction.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FACEFF5C2E44866500C88910 /* test_state_applyAction.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -82,6 +81,7 @@
 		FACEFF442E3B552100C88910 /* NAO-115 Tests */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "NAO-115 Tests"; sourceTree = BUILT_PRODUCTS_DIR; };
 		FACEFF462E3B552100C88910 /* main.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
 		FACEFF512E3B648B00C88910 /* NAO-115 Benchmark */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "NAO-115 Benchmark"; sourceTree = BUILT_PRODUCTS_DIR; };
+		FACEFF5C2E44866500C88910 /* test_state_applyAction.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = test_state_applyAction.cpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -177,6 +177,7 @@
 			isa = PBXGroup;
 			children = (
 				FACEFF382E3AAC1C00C88910 /* test_preflop_encoder.cpp */,
+				FACEFF5C2E44866500C88910 /* test_state_applyAction.cpp */,
 				FACEFF3A2E3AAC2B00C88910 /* test_trainer.cpp */,
 				FACEFF3C2E3AAC3900C88910 /* test_utils.cpp */,
 			);
@@ -347,8 +348,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				FACEFF4C2E3B569E00C88910 /* preflop_encoder.cpp in Sources */,
-				FACEFF5A2E3B659700C88910 /* test_preflop_encoder.cpp in Sources */,
+				FACEFF5D2E44866500C88910 /* test_state_applyAction.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
