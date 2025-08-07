@@ -2,10 +2,14 @@
 
 #include <string>
 
+struct PlayerState {
+    int stack;        // remaining total chip count of the specific player
+    int currentBet;   // chip count bet on the current state
+};
+
 struct GameState {
     int pot; // total chips in the pot
-    int playerChips[2]; // total chips remaining per players (we also call this stack)
-    int playerBets[2]; // current street chip bets per players
+    PlayerState players[2]; // we use the playerstate struct to get the 2 types of chip data
     int currentPlayer; // 0: Big Blind, 1: Small Blind
     int street; // current street, updated when we see a '/' in the actionstring
                 // 0: preflop, 1: flop, 2: turn, 3: river
