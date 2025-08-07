@@ -20,3 +20,5 @@ struct GameState {
                      // Check - Check on River -> (onon-all-in terminal situation, game simply ends)
     std::string actionHistory; // full action history from both players, matching Slumbot's formatting
 };
+
+void applyAction(GameState& state, const std::string& actionStr);
