@@ -22,3 +22,4 @@ struct GameState {
 };
 
 void applyAction(GameState& state, const std::string& actionStr);
+

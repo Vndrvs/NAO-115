@@ -10,7 +10,6 @@
 		FACEFF0F2E3AA6C800C88910 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FACEFF0D2E3AA6C800C88910 /* main.cpp */; };
 		FACEFF1C2E3AA97700C88910 /* trainer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FACEFF1A2E3AA97700C88910 /* trainer.cpp */; };
 		FACEFF1F2E3AA98B00C88910 /* cfr_node.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FACEFF1D2E3AA98B00C88910 /* cfr_node.cpp */; };
-		FACEFF232E3AA9AE00C88910 /* state.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FACEFF212E3AA9AE00C88910 /* state.cpp */; };
 		FACEFF262E3AA9BB00C88910 /* action.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FACEFF242E3AA9BB00C88910 /* action.cpp */; };
 		FACEFF322E3AABCF00C88910 /* hand_encoding.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FACEFF302E3AABCF00C88910 /* hand_encoding.cpp */; };
 		FACEFF362E3AABF000C88910 /* evaluator.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FACEFF342E3AABF000C88910 /* evaluator.cpp */; };
@@ -20,6 +19,7 @@
 		FACEFF592E3B657C00C88910 /* preflop_encoder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FACEFF292E3AAA5E00C88910 /* preflop_encoder.cpp */; };
 		FACEFF5B2E3B665800C88910 /* encode_bench.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FACEFF3E2E3AAC4800C88910 /* encode_bench.cpp */; };
 		FACEFF5D2E44866500C88910 /* test_state_applyAction.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FACEFF5C2E44866500C88910 /* test_state_applyAction.cpp */; };
+		FACEFF5E2E45112600C88910 /* state.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FACEFF212E3AA9AE00C88910 /* state.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -143,7 +143,7 @@
 				FACEFF162E3AA95300C88910 /* benchmark */,
 				FACEFF142E3AA95300C88910 /* encoding */,
 				FACEFF182E3AA95300C88910 /* eval */,
-				FACEFF172E3AA95300C88910 /* game */,
+				FACEFF172E3AA95300C88910 /* core */,
 				FACEFF152E3AA95300C88910 /* test */,
 				FACEFF192E3AA95300C88910 /* utils */,
 				FACEFF102E3AA78100C88910 /* cfr */,
@@ -176,6 +176,10 @@
 		FACEFF152E3AA95300C88910 /* test */ = {
 			isa = PBXGroup;
 			children = (
+				FACEFF612E47A56600C88910 /* cfr */,
+				FACEFF602E47A56600C88910 /* encoding */,
+				FACEFF622E47A56600C88910 /* game */,
+				FACEFF5F2E47A56600C88910 /* utils */,
 				FACEFF382E3AAC1C00C88910 /* test_preflop_encoder.cpp */,
 				FACEFF5C2E44866500C88910 /* test_state_applyAction.cpp */,
 				FACEFF3A2E3AAC2B00C88910 /* test_trainer.cpp */,
@@ -192,7 +196,7 @@
 			path = benchmark;
 			sourceTree = "<group>";
 		};
-		FACEFF172E3AA95300C88910 /* game */ = {
+		FACEFF172E3AA95300C88910 /* core */ = {
 			isa = PBXGroup;
 			children = (
 				FACEFF212E3AA9AE00C88910 /* state.cpp */,
@@ -201,7 +205,7 @@
 				FACEFF252E3AA9BB00C88910 /* action.hpp */,
 				FACEFF2F2E3AABB300C88910 /* constants.hpp */,
 			);
-			path = game;
+			path = core;
 			sourceTree = "<group>";
 		};
 		FACEFF182E3AA95300C88910 /* eval */ = {
@@ -230,6 +234,34 @@
 				FACEFF462E3B552100C88910 /* main.cpp */,
 			);
 			path = "NAO-115 Tests";
+			sourceTree = "<group>";
+		};
+		FACEFF5F2E47A56600C88910 /* utils */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = utils;
+			sourceTree = "<group>";
+		};
+		FACEFF602E47A56600C88910 /* encoding */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = encoding;
+			sourceTree = "<group>";
+		};
+		FACEFF612E47A56600C88910 /* cfr */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = cfr;
+			sourceTree = "<group>";
+		};
+		FACEFF622E47A56600C88910 /* game */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = game;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -339,7 +371,6 @@
 				FACEFF3D2E3AAC3900C88910 /* test_utils.cpp in Sources */,
 				FACEFF1F2E3AA98B00C88910 /* cfr_node.cpp in Sources */,
 				FACEFF1C2E3AA97700C88910 /* trainer.cpp in Sources */,
-				FACEFF232E3AA9AE00C88910 /* state.cpp in Sources */,
 				FACEFF582E3B657C00C88910 /* preflop_encoder.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -349,6 +380,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				FACEFF5D2E44866500C88910 /* test_state_applyAction.cpp in Sources */,
+				FACEFF5E2E45112600C88910 /* state.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

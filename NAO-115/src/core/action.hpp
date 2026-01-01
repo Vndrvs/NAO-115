@@ -30,4 +30,22 @@ namespace Game {
     // decodes bits to readable strings again
     std::string readAction(uint32_t);
 
+struct PlayerState {
+        int64_t stack;               // chips left
+        int64_t contributed_this_street;  // chips bet this street
+        bool folded = false;
+        bool all_in = false;
+    };
+
+struct GameState {
+    Street street;
+    PlayerState players[2];
+    std::vector<std::vector<Action>> history;  // history per street
+    std::vector<std::string> hole_cards;       // always 2 cards for our client
+    std::vector<std::string> board;             // 0-5 cards for flop/turn/river
+    std::string token;                         // unique ID for game state
+    int client_pos;
+};
+
+
 }
