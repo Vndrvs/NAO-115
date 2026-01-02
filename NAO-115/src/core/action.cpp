@@ -47,28 +47,24 @@ namespace Game {
         return bits;
     }
 
+    Action readAction(uint32_t bits) {
+        Action a;
+        // Unmask the first 2 bits
+        a.type = static_cast<ActionType>(bits & 0b11);
+        // Unshift to get the amount
+        a.amount = (bits >> 2);
+        return a;
+    }
+
     // thought about creating a char based constexpr for the actions, but switch seems faster, will benchmark later to decide.
-    std::string readAction(uint32_t bits) {
-        // our of the 32 available bits, we used the first 2 to determine our action type
-        // so first we mask the first two, than throw in into the static cast machine (lol) which will pass the enum type action
-        ActionType type = static_cast<ActionType>(bits & 0b11);
-        
-        // depending on the received enum, we throw the corresponding character
-        switch (type) {
-            // again, these are straightforward
+    std::string actionToString(const Action& a) {
+        switch (a.type) {
             case ActionType::Fold: return "f";
             case ActionType::Call: return "c";
             case ActionType::Check: return "k";
-            // in case of bet,
-            case ActionType::Bet: {
-                // we shift right by two bits, so only the bits corresponding to the bet amount remain
-                // and we cast the bit type number to an integer to get the actual decimal (normal number) representation of the bet size
-                int amount = static_cast<int>(bits >> 2);
-                // and after adding 'b', we convert the
-                return "b" + std::to_string(amount);
-            }
+            case ActionType::Bet:
+                return "b" + std::to_string(a.amount);
             default: return "?";
         }
     }
-
 }
