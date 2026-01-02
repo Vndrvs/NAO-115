@@ -3,8 +3,16 @@
 #include <string>
 #include <optional>
 #include <cstdint>
+#include <vector>
 
 namespace Game {
+
+    enum class Street : uint8_t {
+        Preflop = 0,
+        Flop = 1,
+        Turn = 2,
+        River = 3
+    };
 
     enum class ActionType : uint8_t {
         Fold,

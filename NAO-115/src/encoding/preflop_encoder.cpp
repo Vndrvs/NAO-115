@@ -4,6 +4,22 @@
 
 namespace Preflop {
 
+static constexpr int PREFLOP_LOOKUP[13][13] = {
+    {0, 90, 89, 87, 84, 80, 75, 69, 62, 54, 45, 35, 24},   // 2s
+    {168, 1, 88, 86, 83, 79, 74, 68, 61, 53, 44, 34, 23},  // 3s
+    {167, 166, 2, 85, 82, 78, 73, 67, 60, 52, 43, 33, 22}, // 4s
+    {165, 164, 163, 3, 81, 77, 72, 66, 59, 51, 42, 32, 21}, // 5s
+    {162, 161, 160, 159, 4, 76, 71, 65, 58, 50, 41, 31, 20}, // 6s
+    {158, 157, 156, 155, 154, 5, 70, 64, 57, 49, 40, 30, 19}, // 7s
+    {153, 152, 151, 150, 149, 148, 6, 63, 56, 48, 39, 29, 18}, // 8s
+    {147, 146, 145, 144, 143, 142, 141, 7, 55, 47, 38, 28, 17}, // 9s
+    {140, 139, 138, 137, 136, 135, 134, 133, 8, 46, 37, 27, 16}, // Ts
+    {132, 131, 130, 129, 128, 127, 126, 125, 124, 9, 36, 26, 15}, // Js
+    {123, 122, 121, 120, 119, 118, 117, 116, 115, 114, 10, 25, 14}, // Qs
+    {113, 112, 111, 110, 109, 108, 107, 106, 105, 104, 103, 11, 13}, // Ks
+    {102, 101, 100, 99, 98, 97, 96, 95, 94, 93, 92, 91, 12}          // As
+};
+
 std::optional<EncodedHand> convertHandFormat(const std::string& input) {
     
     // checks if input is exactly 4 letters like 'AsKs'
@@ -57,55 +73,17 @@ std::optional<EncodedHand> convertHandFormat(const std::string& input) {
 
 
 int handToIndex(const EncodedHand& hand) {
-    
-    constexpr int NUM_RANKS = 13;
-    
-    uint8_t hi = hand.hiRank;
-    uint8_t lo = hand.loRank;
-    
-    bool suited = hand.suited;
-    
-    // if it's a pocket pair (like '33' or 'AA'), just return the index of the specific rank
-    if (hi == lo) {
-        return hi - 1;
+    // Rank values are 1-13, but array indices are 0-12
+    int hi = hand.hiRank - 1;
+    int lo = hand.loRank - 1;
+
+    // FIX: Suited hands/Pairs use the UPPER triangle (lo, hi)
+    if (hand.hiRank == hand.loRank || hand.suited) {
+        return PREFLOP_LOOKUP[lo][hi];
     }
     
-    // in case if suited (like 'Ks7s'), we loop through suited combos
-    else if (suited) {
-        
-        int suitedIndex = 0;
-        
-        for (int i = NUM_RANKS; i >= 1; --i) {
-            for (int j = i - 1; j >= 1; --j) {
-                
-                if (i == hi && j == lo) {
-                    return 13 + suitedIndex;
-                }
-                
-                ++suitedIndex;
-            }
-        }
-    }
-    
-    // else it's offsuit (like 'Jd8h'), we use different section of the grid
-    else {
-        
-        int offsuitIndex = 0;
-        
-        for (int i = NUM_RANKS; i >= 1; --i) {
-            for (int j = i - 1; j >= 1; --j) {
-                
-                if (i == hi && j == lo) {
-                    return 91 + offsuitIndex;
-                }
-                
-                ++offsuitIndex;
-            }
-        }
-    }
-    
-    // hopefully nothing breaks, but if it does, this notifies us
-    return -1;
+    // FIX: Offsuit hands use the LOWER triangle (hi, lo)
+    return PREFLOP_LOOKUP[hi][lo];
 }
 
 }

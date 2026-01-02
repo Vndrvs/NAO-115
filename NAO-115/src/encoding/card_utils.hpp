@@ -60,5 +60,4 @@ namespace CardUtils {
     inline bool isValidCard(char rank, char suit) {
         return getRankValue(rank) != 0 && isValidSuit(suit);
     }
-
 }

@@ -6,7 +6,7 @@
 // created namespace for easier categorization for later
 namespace Preflop {
 
-// tiny box that holds info about a hand
+// holds info about a hand
 struct EncodedHand {
     uint8_t hiRank;   // this is the bigger card number (like A = 13)
     uint8_t loRank;   // this is the smaller one

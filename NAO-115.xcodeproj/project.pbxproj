@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		FA8D612F2F07D3C000DD11FE /* test_preflop_encoder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FACEFF382E3AAC1C00C88910 /* test_preflop_encoder.cpp */; };
+		FA8D61302F07D41900DD11FE /* preflop_encoder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FACEFF292E3AAA5E00C88910 /* preflop_encoder.cpp */; };
 		FACEFF0F2E3AA6C800C88910 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FACEFF0D2E3AA6C800C88910 /* main.cpp */; };
 		FACEFF1C2E3AA97700C88910 /* trainer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FACEFF1A2E3AA97700C88910 /* trainer.cpp */; };
 		FACEFF1F2E3AA98B00C88910 /* cfr_node.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FACEFF1D2E3AA98B00C88910 /* cfr_node.cpp */; };
@@ -18,8 +20,6 @@
 		FACEFF582E3B657C00C88910 /* preflop_encoder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FACEFF292E3AAA5E00C88910 /* preflop_encoder.cpp */; };
 		FACEFF592E3B657C00C88910 /* preflop_encoder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FACEFF292E3AAA5E00C88910 /* preflop_encoder.cpp */; };
 		FACEFF5B2E3B665800C88910 /* encode_bench.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FACEFF3E2E3AAC4800C88910 /* encode_bench.cpp */; };
-		FACEFF5D2E44866500C88910 /* test_state_applyAction.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FACEFF5C2E44866500C88910 /* test_state_applyAction.cpp */; };
-		FACEFF5E2E45112600C88910 /* state.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FACEFF212E3AA9AE00C88910 /* state.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -81,7 +81,6 @@
 		FACEFF442E3B552100C88910 /* NAO-115 Tests */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "NAO-115 Tests"; sourceTree = BUILT_PRODUCTS_DIR; };
 		FACEFF462E3B552100C88910 /* main.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
 		FACEFF512E3B648B00C88910 /* NAO-115 Benchmark */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "NAO-115 Benchmark"; sourceTree = BUILT_PRODUCTS_DIR; };
-		FACEFF5C2E44866500C88910 /* test_state_applyAction.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = test_state_applyAction.cpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -181,7 +180,6 @@
 				FACEFF622E47A56600C88910 /* game */,
 				FACEFF5F2E47A56600C88910 /* utils */,
 				FACEFF382E3AAC1C00C88910 /* test_preflop_encoder.cpp */,
-				FACEFF5C2E44866500C88910 /* test_state_applyAction.cpp */,
 				FACEFF3A2E3AAC2B00C88910 /* test_trainer.cpp */,
 				FACEFF3C2E3AAC3900C88910 /* test_utils.cpp */,
 			);
@@ -379,8 +377,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				FACEFF5D2E44866500C88910 /* test_state_applyAction.cpp in Sources */,
-				FACEFF5E2E45112600C88910 /* state.cpp in Sources */,
+				FA8D61302F07D41900DD11FE /* preflop_encoder.cpp in Sources */,
+				FA8D612F2F07D3C000DD11FE /* test_preflop_encoder.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
