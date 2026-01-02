@@ -14,8 +14,8 @@ enum class Street : uint8_t {
 };
 
 struct PlayerState {
-    int stack;        // remaining total chip count of the specific player
-    int currentBet;   // chip count bet on the current state
+    int stack = 0;        // remaining total chip count of the specific player
+    int currentBet = 0;   // chip count bet on the current state
 };
 
 struct GameState {

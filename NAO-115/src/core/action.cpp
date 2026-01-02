@@ -56,7 +56,6 @@ namespace Game {
         return a;
     }
 
-    // thought about creating a char based constexpr for the actions, but switch seems faster, will benchmark later to decide.
     std::string actionToString(const Action& a) {
         switch (a.type) {
             case ActionType::Fold: return "f";

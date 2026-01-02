@@ -1,13 +1,13 @@
-//
-//  evaluator.hpp
-//  NAO-115
-//
-//  Created by 未来 ガジェット on 31/07/2025.
-//
+#pragma once
 
-#ifndef evaluator_hpp
-#define evaluator_hpp
+#include <vector>
+#include <string>
+#include <cstdint>
 
-#include <stdio.h>
+namespace Eval {
 
-#endif /* evaluator_hpp */
+    void initialize();
+    int evaluate7(const std::vector<int>& cards);
+    int parseCard(const std::string& cardStr);
+
+}

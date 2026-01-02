@@ -7,8 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		FA8D612F2F07D3C000DD11FE /* test_preflop_encoder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FACEFF382E3AAC1C00C88910 /* test_preflop_encoder.cpp */; };
 		FA8D61302F07D41900DD11FE /* preflop_encoder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FACEFF292E3AAA5E00C88910 /* preflop_encoder.cpp */; };
+		FA8D61332F07ED8F00DD11FE /* state.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FACEFF212E3AA9AE00C88910 /* state.cpp */; };
+		FA8D61342F07ED8F00DD11FE /* state.hpp in Sources */ = {isa = PBXBuildFile; fileRef = FACEFF222E3AA9AE00C88910 /* state.hpp */; };
+		FA8D61352F07ED8F00DD11FE /* action.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FACEFF242E3AA9BB00C88910 /* action.cpp */; };
+		FA8D61362F07ED8F00DD11FE /* action.hpp in Sources */ = {isa = PBXBuildFile; fileRef = FACEFF252E3AA9BB00C88910 /* action.hpp */; };
 		FACEFF0F2E3AA6C800C88910 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FACEFF0D2E3AA6C800C88910 /* main.cpp */; };
 		FACEFF1C2E3AA97700C88910 /* trainer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FACEFF1A2E3AA97700C88910 /* trainer.cpp */; };
 		FACEFF1F2E3AA98B00C88910 /* cfr_node.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FACEFF1D2E3AA98B00C88910 /* cfr_node.cpp */; };
@@ -53,6 +56,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		FA8D613B2F08051800DD11FE /* tables.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = tables.h; sourceTree = "<group>"; };
 		FACEFF032E3AA54E00C88910 /* NAO-115 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "NAO-115"; sourceTree = BUILT_PRODUCTS_DIR; };
 		FACEFF0D2E3AA6C800C88910 /* main.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
 		FACEFF1A2E3AA97700C88910 /* trainer.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = trainer.cpp; sourceTree = "<group>"; };
@@ -212,6 +216,7 @@
 				FACEFF342E3AABF000C88910 /* evaluator.cpp */,
 				FACEFF352E3AABF000C88910 /* evaluator.hpp */,
 				FACEFF372E3AAC0200C88910 /* buckets.hpp */,
+				FA8D613B2F08051800DD11FE /* tables.h */,
 			);
 			path = eval;
 			sourceTree = "<group>";
@@ -377,8 +382,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FA8D61332F07ED8F00DD11FE /* state.cpp in Sources */,
+				FA8D61342F07ED8F00DD11FE /* state.hpp in Sources */,
+				FA8D61352F07ED8F00DD11FE /* action.cpp in Sources */,
+				FA8D61362F07ED8F00DD11FE /* action.hpp in Sources */,
 				FA8D61302F07D41900DD11FE /* preflop_encoder.cpp in Sources */,
-				FA8D612F2F07D3C000DD11FE /* test_preflop_encoder.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
