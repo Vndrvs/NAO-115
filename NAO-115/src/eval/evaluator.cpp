@@ -1,5 +1,5 @@
 /*
- * A part of this evaluator is derived from "Cactus Kev's Poker Library".
+ * A part of this evaluator logic is derived from "Cactus Kev's Poker Library".
  * * Original Source: http://suffe.cool/poker/code/
  * Original Author: Kevin L. Suffecool
  * License: GNU General Public License v3.0 (GPL-3.0)
@@ -9,7 +9,7 @@
  */
 
 #include "evaluator.hpp"
-#include "tables.h"
+#include "tables.hpp"
 #include <iostream>
 #include <vector>
 #include <cstring>
@@ -73,42 +73,68 @@ inline int eval_5(int c1, int c2, int c3, int c4, int c5) {
 
     // 1. check for flushes
     if (c1 & c2 & c3 & c4 & c5 & 0xF000) {
-        return 7463 - flushRanks[q];
+        return HAND_RANKS - flushRanks[q];
     }
 
     // 2. check for unique ranks (straight or high card)
     if ((s = uniqueRanks[q])) {
-        return 7463 - s;
+        return HAND_RANKS - s;
     }
 
     // 3. check for all other combinations
     int product = (c1 & 0xFF) * (c2 & 0xFF) * (c3 & 0xFF) * (c4 & 0xFF) * (c5 & 0xFF);
-    return 7463 - hashRanks[find_fast(product)];
+    return HAND_RANKS - hashRanks[find_fast(product)];
 }
 
-inline int get_straight_flush_rank(int mask) {
+// here comes the 7-card evaluator
+// pure bitwise logic function to find a straight flush fast
 
+inline int find_straight_high(int mask) {
+    // finds any sequence of 5 consecutive ranks
     int tmp = mask & (mask << 1) & (mask << 2) & (mask << 3) & (mask << 4);
     
+    // if found
     if (tmp != 0) {
+        // get the index of the highest set bit - which is the top rank of the straight
+        // eg. case 'A-K-Q-J-T': returns 12
         int bit = 31 - __builtin_clz(tmp);
         return bit;
     }
     
+    // special case A-2-3-4-5 ("ace-low straight"): returns 3 (rank of 5)
     if ((mask & 0x100F) == 0x100F) return 3;
     
     return -1;
 }
 
-int evaluate7(const std::vector<int>& cards) {
-    int h[7];
-    for(int i=0; i<cards.size(); ++i) h[i] = deck[cards[i]];
+int eval_7(const int* cards) {
     
+    // array holding the 7 cards
+    int h[7];
+    
+    // look up the Kev encoding per card and store it in the array
+    h[0] = deck[cards[0]];
+    h[1] = deck[cards[1]];
+    h[2] = deck[cards[2]];
+    h[3] = deck[cards[3]]; 
+    h[4] = deck[cards[4]];
+    h[5] = deck[cards[5]];
+    h[6] = deck[cards[6]];
+
+    // count summary variables
+    // eg. "As-Ks-Qs-Js-Ts-2d-9c"
+    
+    // how many cards of given suit
+    // suit_counts[spades] = 5
     int suit_counts[4] = {0};
+    // rank bits turned on for that suit
+    // suit_masks[spades] = bits on for A,K,Q,J,T
     int suit_masks[4] = {0};
+    // OR for all ranks
+    // full_rank_mask = bits on for A,K,Q,J,T,9,2
     int full_rank_mask = 0;
     
-    for(int i=0; i<cards.size(); ++i) {
+    for(int i=0; i<7; ++i) {
         int rank_bit = (h[i] >> 16);
         full_rank_mask |= rank_bit;
         
@@ -118,34 +144,53 @@ int evaluate7(const std::vector<int>& cards) {
         else { suit_counts[3]++; suit_masks[3] |= rank_bit; }
     }
     
+    // early exit optimization - does any suit have 5 or more cards?
     for(int i=0; i<4; i++) {
         if (suit_counts[i] >= 5) {
+            // if yes,
             int mask = suit_masks[i];
             
-            int sf_top = get_straight_flush_rank(mask);
+            // we should find rank of the straight flush that we found
+            int sf_top = find_straight_high(mask);
+            
+            // build the 5-bit rank mask and look it up in flushRanks, given by Kev's code previously
             if (sf_top != -1) {
-
                 int sf_mask = 0;
                 if (sf_top == 3) sf_mask = 0x100F;
                 else sf_mask = (0x1F << (sf_top - 4));
                 
-                return 7463 - flushRanks[sf_mask];
+                // return the result early
+                return HAND_RANKS - flushRanks[sf_mask];
             }
             
+            // walk ranks high to low, pick top 5 ranks from the flush suit
             int final_mask = 0;
             int count = 0;
             for(int r=12; r>=0; r--) {
                 if ((mask >> r) & 1) {
                     final_mask |= (1 << r);
                     count++;
+                    // break after found the top 5
                     if (count == 5) break;
                 }
             }
-            return 7463 - flushRanks[final_mask];
+            // lookup result in same flush array
+            return HAND_RANKS - flushRanks[final_mask];
         }
     }
     
-    if (__builtin_popcount(full_rank_mask) == cards.size()) {
+    // if all
+    if (__builtin_popcount(full_rank_mask) == 7) {
+      
+        int str_top = find_straight_high(full_rank_mask);
+        if (str_top != -1) {
+            int str_mask = 0;
+            if (str_top == 3) str_mask = 0x100F;
+            else str_mask = (0x1F << (str_top - 4));
+            
+            return HAND_RANKS - uniqueRanks[str_mask];
+        }
+        
         int mask = 0;
         int bits_found = 0;
         for (int r=12; r>=0; r--) {
@@ -155,9 +200,9 @@ int evaluate7(const std::vector<int>& cards) {
                 if (bits_found == 5) break;
             }
         }
-        return 7463 - uniqueRanks[mask];
+        return HAND_RANKS - uniqueRanks[mask];
     }
-    
+    // if we fail to detect a flush, or a unique series of ranks, fallback to Kev's permutation-based calculator
     int max_score = 0;
     for (int i = 0; i < 21; i++) {
         int score = eval_5(
@@ -166,7 +211,6 @@ int evaluate7(const std::vector<int>& cards) {
         );
         if (score > max_score) max_score = score;
     }
-    
     return max_score;
 }
 
@@ -174,6 +218,7 @@ int parseCard(const std::string& cardStr) {
     if (cardStr.size() < 2) return -1;
     char r = cardStr[0];
     char s = cardStr[1];
+    // rank index
     int ri = 0;
     if (isdigit(r)) ri = r - '2';
     else if (r == 'T') ri = 8;
@@ -181,6 +226,7 @@ int parseCard(const std::string& cardStr) {
     else if (r == 'Q') ri = 10;
     else if (r == 'K') ri = 11;
     else if (r == 'A') ri = 12;
+    // suit index
     int si = 0;
     if (s == 'c') si = 0;
     else if (s == 'd') si = 1;
@@ -189,4 +235,39 @@ int parseCard(const std::string& cardStr) {
     return ri * 4 + si;
 }
 
+// BUCKETER WRAPPERS
+
+int evaluate5(const std::vector<int>& cards) {
+    return eval_5(
+        deck[cards[0]], deck[cards[1]], deck[cards[2]],
+        deck[cards[3]], deck[cards[4]]
+    );
 }
+
+// 6 cards wrapper - brute force choose 5 (average speed probably faster than bitmasking)
+int evaluate6(const std::vector<int>& cards) {
+    int k[6];
+    for(int i=0; i<6; ++i) k[i] = deck[cards[i]];
+    
+    // choose 5 from 6, combinatorics
+    // here, do a manual test of dropping a card each time, so at the end, the best score wins
+    int best = eval_5(k[1], k[2], k[3], k[4], k[5]);
+    int s;
+    s = eval_5(k[0], k[2], k[3], k[4], k[5]); if (s > best) best = s;
+    s = eval_5(k[0], k[1], k[3], k[4], k[5]); if (s > best) best = s;
+    s = eval_5(k[0], k[1], k[2], k[4], k[5]); if (s > best) best = s;
+    s = eval_5(k[0], k[1], k[2], k[3], k[5]); if (s > best) best = s;
+    s = eval_5(k[0], k[1], k[2], k[3], k[4]); if (s > best) best = s;
+    
+    return best;
+}
+
+// bridge vector to the pointer
+int evaluate7(const std::vector<int>& cards) {
+    return eval_7(cards.data());
+}
+
+
+}
+
+

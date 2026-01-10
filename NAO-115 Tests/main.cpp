@@ -1,14 +1,14 @@
-//
-//  main.cpp
-//  NAO-115 Tests
-//
-//  Created by 未来 ガジェット on 31/07/2025.
-//
-
+// NAO-115 Tests/main.cpp
 #include <iostream>
 
+void run_comparison_test();
+
 int main(int argc, const char * argv[]) {
-    // insert code here...
-    std::cout << "Hello, World!\n";
+    std::cout << "=== NAO-115 TEST SUITE ===\n";
+    
+    std::cout << "\n";
+    
+    run_comparison_test();
+    
     return 0;
 }

@@ -19,8 +19,9 @@ DerivedData/
 *.xcuserstate
 *.xcuserdata/
 *.xcscmblueprint
+*.xcodeproj/
 
-# Xcode workspace and project user data (optional, if you want to share user settings)
+# Xcode workspace and project user data
 *.xcworkspace/contents.xcworkspacedata
 !default.xcworkspace
 
@@ -41,6 +42,7 @@ Makefile
 *.so
 *.dylib
 *.dll
+trainer
 
 # Backup and temp files
 *~
@@ -51,10 +53,10 @@ Makefile
 # Logs
 *.log
 
-# VSCode settings (if you ever use it)
+# VSCode settings
 .vscode/
 
-# Testing framework (if you add GoogleTest or similar)
+# Testing framework
 googletest/
 
 # Others
@@ -63,6 +65,7 @@ googletest/
 
 # Compiled binaries
 *.bin
+centroids.dat
 
 # Xcode index files and logs
 *.xcindex
@@ -81,5 +84,14 @@ googletest/
 *.gcno
 *.gcov
 
-# Ignore CMake generated files (if you want to keep your CMakeLists.txt, but not build outputs)
+# Ignore CMake generated files
 CMakeLists.txt.user
+
+# Igore source files
+**/bucketer.cpp
+**/bucketer.hpp
+**/centroids.dat
+
+# Ignore the Xcode project folders anywhere
+**.xcodeproj/
+**.xcworkspace/
