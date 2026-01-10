@@ -91,7 +91,3 @@ CMakeLists.txt.user
 **/bucketer.cpp
 **/bucketer.hpp
 **/centroids.dat
-
-# Ignore the Xcode project folders anywhere
-**.xcodeproj/
-**.xcworkspace/
