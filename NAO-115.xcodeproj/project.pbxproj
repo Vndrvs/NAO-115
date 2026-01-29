@@ -23,6 +23,7 @@
 		FACEFF582E3B657C00C88910 /* preflop_encoder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FACEFF292E3AAA5E00C88910 /* preflop_encoder.cpp */; };
 		FACEFF592E3B657C00C88910 /* preflop_encoder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FACEFF292E3AAA5E00C88910 /* preflop_encoder.cpp */; };
 		FACEFF5B2E3B665800C88910 /* encode_bench.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FACEFF3E2E3AAC4800C88910 /* encode_bench.cpp */; };
+		FAEF1AB02F12466700CCB6C9 /* bucketer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FAEF1AAF2F12466700CCB6C9 /* bucketer.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -56,7 +57,6 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		FA8D613B2F08051800DD11FE /* tables.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = tables.h; sourceTree = "<group>"; };
 		FACEFF032E3AA54E00C88910 /* NAO-115 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "NAO-115"; sourceTree = BUILT_PRODUCTS_DIR; };
 		FACEFF0D2E3AA6C800C88910 /* main.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
 		FACEFF1A2E3AA97700C88910 /* trainer.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = trainer.cpp; sourceTree = "<group>"; };
@@ -85,6 +85,9 @@
 		FACEFF442E3B552100C88910 /* NAO-115 Tests */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "NAO-115 Tests"; sourceTree = BUILT_PRODUCTS_DIR; };
 		FACEFF462E3B552100C88910 /* main.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
 		FACEFF512E3B648B00C88910 /* NAO-115 Benchmark */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "NAO-115 Benchmark"; sourceTree = BUILT_PRODUCTS_DIR; };
+		FAEF1AAD2F12465C00CCB6C9 /* tables.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = tables.hpp; sourceTree = "<group>"; };
+		FAEF1AAE2F12465C00CCB6C9 /* bucketer.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = bucketer.hpp; sourceTree = "<group>"; };
+		FAEF1AAF2F12466700CCB6C9 /* bucketer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = bucketer.cpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -213,10 +216,12 @@
 		FACEFF182E3AA95300C88910 /* eval */ = {
 			isa = PBXGroup;
 			children = (
+				FAEF1AAF2F12466700CCB6C9 /* bucketer.cpp */,
+				FAEF1AAE2F12465C00CCB6C9 /* bucketer.hpp */,
+				FAEF1AAD2F12465C00CCB6C9 /* tables.hpp */,
 				FACEFF342E3AABF000C88910 /* evaluator.cpp */,
 				FACEFF352E3AABF000C88910 /* evaluator.hpp */,
 				FACEFF372E3AAC0200C88910 /* buckets.hpp */,
-				FA8D613B2F08051800DD11FE /* tables.h */,
 			);
 			path = eval;
 			sourceTree = "<group>";
@@ -366,6 +371,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FAEF1AB02F12466700CCB6C9 /* bucketer.cpp in Sources */,
 				FACEFF0F2E3AA6C800C88910 /* main.cpp in Sources */,
 				FACEFF3B2E3AAC2B00C88910 /* test_trainer.cpp in Sources */,
 				FACEFF362E3AABF000C88910 /* evaluator.cpp in Sources */,

@@ -17,3 +17,4 @@ int parseCard(const std::string& cardStr);
 int eval_7(const int* cards);
 
 }
+
