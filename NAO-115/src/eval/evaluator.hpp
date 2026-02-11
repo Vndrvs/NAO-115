@@ -7,6 +7,7 @@
 namespace Eval {
 
 constexpr int HAND_RANKS = 7463;
+extern int deck[52];
 
 void initialize();
 inline int eval_5(int c1, int c2, int c3, int c4, int c5);

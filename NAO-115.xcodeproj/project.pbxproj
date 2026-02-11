@@ -24,6 +24,7 @@
 		FACEFF592E3B657C00C88910 /* preflop_encoder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FACEFF292E3AAA5E00C88910 /* preflop_encoder.cpp */; };
 		FACEFF5B2E3B665800C88910 /* encode_bench.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FACEFF3E2E3AAC4800C88910 /* encode_bench.cpp */; };
 		FAEF1AB02F12466700CCB6C9 /* bucketer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FAEF1AAF2F12466700CCB6C9 /* bucketer.cpp */; };
+		FAEF1AB92F2BCDAC00CCB6C9 /* abstraction.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FAEF1AB72F2BCDAC00CCB6C9 /* abstraction.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -88,6 +89,8 @@
 		FAEF1AAD2F12465C00CCB6C9 /* tables.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = tables.hpp; sourceTree = "<group>"; };
 		FAEF1AAE2F12465C00CCB6C9 /* bucketer.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = bucketer.hpp; sourceTree = "<group>"; };
 		FAEF1AAF2F12466700CCB6C9 /* bucketer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = bucketer.cpp; sourceTree = "<group>"; };
+		FAEF1AB72F2BCDAC00CCB6C9 /* abstraction.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = abstraction.cpp; sourceTree = "<group>"; };
+		FAEF1AB82F2BCDAC00CCB6C9 /* abstraction.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = abstraction.hpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -222,6 +225,8 @@
 				FACEFF342E3AABF000C88910 /* evaluator.cpp */,
 				FACEFF352E3AABF000C88910 /* evaluator.hpp */,
 				FACEFF372E3AAC0200C88910 /* buckets.hpp */,
+				FAEF1AB72F2BCDAC00CCB6C9 /* abstraction.cpp */,
+				FAEF1AB82F2BCDAC00CCB6C9 /* abstraction.hpp */,
 			);
 			path = eval;
 			sourceTree = "<group>";
@@ -373,6 +378,7 @@
 			files = (
 				FAEF1AB02F12466700CCB6C9 /* bucketer.cpp in Sources */,
 				FACEFF0F2E3AA6C800C88910 /* main.cpp in Sources */,
+				FAEF1AB92F2BCDAC00CCB6C9 /* abstraction.cpp in Sources */,
 				FACEFF3B2E3AAC2B00C88910 /* test_trainer.cpp in Sources */,
 				FACEFF362E3AABF000C88910 /* evaluator.cpp in Sources */,
 				FACEFF322E3AABCF00C88910 /* hand_encoding.cpp in Sources */,
