@@ -18,7 +18,6 @@
 namespace Eval {
 
 // standard 52-card poker deck
-static int deck[52];
 static bool is_initialized = false;
 
 // 1. we assign a prime number to each and every rank in the deck
@@ -107,19 +106,19 @@ inline int find_straight_high(int mask) {
     return -1;
 }
 
-int eval_7(const int* cards) {
+int eval_7(int c1, int c2, int c3, int c4, int c5, int c6, int c7) {
     
     // array holding the 7 cards
     int h[7];
     
     // look up the Kev encoding per card and store it in the array
-    h[0] = deck[cards[0]];
-    h[1] = deck[cards[1]];
-    h[2] = deck[cards[2]];
-    h[3] = deck[cards[3]]; 
-    h[4] = deck[cards[4]];
-    h[5] = deck[cards[5]];
-    h[6] = deck[cards[6]];
+    h[0] = deck[c1];
+    h[1] = deck[c2];
+    h[2] = deck[c3];
+    h[3] = deck[c4];
+    h[4] = deck[c5];
+    h[5] = deck[c6];
+    h[6] = deck[c7];
 
     // count summary variables
     // eg. "As-Ks-Qs-Js-Ts-2d-9c"
