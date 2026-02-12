@@ -1411,7 +1411,7 @@ static const unsigned short hashRanks[] =
      166, 5438, 2627, 2266, 2320,  166, 2588, 4790, 4290,  166, 4767, 5829, 2925, 5916, 2133,  166
 };
 
-int permutations[21][5] =
+static const int permutations[21][5] =
 {
     { 0, 1, 2, 3, 4 },
     { 0, 1, 2, 3, 5 },
