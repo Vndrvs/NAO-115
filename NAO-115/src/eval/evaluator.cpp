@@ -18,6 +18,7 @@
 namespace Eval {
 
 // standard 52-card poker deck
+int deck[52];
 static bool is_initialized = false;
 
 // 1. we assign a prime number to each and every rank in the deck

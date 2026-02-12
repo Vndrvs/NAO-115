@@ -1,5 +1,3 @@
-#pragma once
-
 #include "abstraction.hpp"
 #include "evaluator.hpp"
 

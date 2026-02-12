@@ -1,5 +1,3 @@
-#pragma once
-
 #include "bucketer.hpp"
 #include "evaluator.hpp"
 #include "abstraction.hpp"
@@ -127,7 +125,7 @@ void apply_z(std::vector<std::array<float,4>>& data,
 std::vector<std::array<float,4>> kmeans(
     const std::vector<std::array<float,4>>& data,
     int k,
-    int max_iters = 100
+    int max_iters
 ) {
     const size_t n = data.size();
     const size_t dim = 4;
