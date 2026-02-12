@@ -5,55 +5,54 @@ project(NAO-115)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# ---------------------------------------------------------
-# 1. Fetch GoogleTest automatically
-# ---------------------------------------------------------
+# Fetch Googletest
 include(FetchContent)
 FetchContent_Declare(
   googletest
   URL https://github.com/google/googletest/archive/refs/heads/main.zip
 )
-# For Windows: Prevent overriding the parent project's compiler/linker settings
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
-# ---------------------------------------------------------
-# 2. Define the Main Library (Your Core Logic)
-# ---------------------------------------------------------
-# We create a library so both the Main App and the Tests can use the code
-# without compiling it twice.
 
-# Find all source files in src, excluding main.cpp
-file(GLOB_RECURSE SOURCE_FILES "NAO-115/src/*.cpp")
+# Find all source files
+file(GLOB_RECURSE SOURCE_FILES "NAO-115/src/*.cpp" "NAO-115/src/*.hpp" "NAO-115/src/*.h")
+
 list(FILTER SOURCE_FILES EXCLUDE REGEX "NAO-115/src/main.cpp")
 list(FILTER SOURCE_FILES EXCLUDE REGEX "NAO-115/src/benchmark/.*")
+
+# PRESERVE FOLDER STRUCTURE IN XCODE
+foreach(file_path ${SOURCE_FILES})
+    file(RELATIVE_PATH relative_path "${CMAKE_CURRENT_SOURCE_DIR}/NAO-115/src" "${file_path}")
+    get_filename_component(dir_path "${relative_path}" DIRECTORY)
+    string(REPLACE "/" "\\" group_path "${dir_path}")
+    source_group("${group_path}" FILES "${file_path}")
+endforeach()
 
 # Create the library
 add_library(nao_core ${SOURCE_FILES})
 target_include_directories(nao_core PUBLIC "NAO-115/src")
 
-# ---------------------------------------------------------
-# 3. The Main Executable (The Game/Solver)
-# ---------------------------------------------------------
+
+# The Game/Solver
 add_executable(nao_run "NAO-115/src/main.cpp")
 target_link_libraries(nao_run PRIVATE nao_core)
 
-# ---------------------------------------------------------
-# 4. The Test Executable (Google Test)
-# ---------------------------------------------------------
+# Tests
 enable_testing()
-
 include(GoogleTest)
 
+# Main Tests
 add_executable(nao_tests "NAO-115_Tests/main.cpp")
 target_link_libraries(nao_tests PRIVATE nao_core GTest::gtest_main)
-gtest_discover_tests(nao_tests)
+add_test(NAME NaoTests COMMAND nao_tests)
 
+# Bucketer Tests
 add_executable(bucketer_tests "NAO-115_Tests/bucketer/test_bucketer.cpp")
 target_link_libraries(bucketer_tests PRIVATE nao_core GTest::gtest_main)
-target_include_directories(bucketer_tests PRIVATE "${CMAKE_SOURCE_DIR}/NAO-115/src")
-gtest_discover_tests(bucketer_tests)
+add_test(NAME BucketerTests COMMAND bucketer_tests)
 
+# Evaluator Tests
 add_executable(evaluator_tests "NAO-115_Tests/evaluator/test_evaluator.cpp")
 target_link_libraries(evaluator_tests PRIVATE nao_core GTest::gtest_main)
-gtest_discover_tests(evaluator_tests)
+add_test(NAME EvaluatorTests COMMAND evaluator_tests)
