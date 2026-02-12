@@ -1,6 +1,74 @@
-//
-//  test_evaluator.cpp
-//  NAO-115 Tests
-//
-//  Created by 未来 ガジェット on 12/02/2026.
-//
+#include <gtest/gtest.h>
+#include "eval/tables.hpp"
+#include "eval/evaluator.hpp"
+#include <random>
+#include <algorithm>
+#include <numeric>
+
+using namespace Eval;
+
+class EvaluatorHeavyTest : public ::testing::Test {
+protected:
+    void SetUp() override {
+        Eval::initialize();
+    }
+};
+
+TEST_F(EvaluatorHeavyTest, VerifyAgainstOfficialRankTable) {
+    // 1. Royal Flush (Rank 1) -> 7463 - 1 = 7462
+    EXPECT_EQ(Eval::evaluate5({Eval::parseCard("As"), Eval::parseCard("Ks"), Eval::parseCard("Qs"), Eval::parseCard("Js"), Eval::parseCard("Ts")}), 7462);
+
+    // 2. Best Quads: Aces with King kicker (Rank 11) -> 7463 - 11 = 7452
+    EXPECT_EQ(Eval::evaluate5({Eval::parseCard("As"), Eval::parseCard("Ah"), Eval::parseCard("Ad"), Eval::parseCard("Ac"), Eval::parseCard("Ks")}), 7452);
+
+    // 3. Worst Quads: Aces with 2 kicker (Rank 22) -> 7463 - 22 = 7441
+    EXPECT_EQ(Eval::evaluate5({Eval::parseCard("As"), Eval::parseCard("Ah"), Eval::parseCard("Ad"), Eval::parseCard("Ac"), Eval::parseCard("2s")}), 7441);
+
+    // 4. Strongest Full House: Aces full of Kings (Rank 167) -> 7463 - 167 = 7296
+    EXPECT_EQ(Eval::evaluate5({Eval::parseCard("As"), Eval::parseCard("Ah"), Eval::parseCard("Ad"), Eval::parseCard("Ks"), Eval::parseCard("Kh")}), 7296);
+
+    // 5. Strongest Flush: A-K-Q-J-9 (Rank 323) -> 7463 - 323 = 7140
+    EXPECT_EQ(Eval::evaluate5({Eval::parseCard("As"), Eval::parseCard("Ks"), Eval::parseCard("Qs"), Eval::parseCard("Js"), Eval::parseCard("9s")}), 7140);
+
+    // 6. Strongest Straight: A-K-Q-J-T (Rank 1600) -> 7463 - 1600 = 5863
+    EXPECT_EQ(Eval::evaluate5({Eval::parseCard("As"), Eval::parseCard("Kh"), Eval::parseCard("Qd"), Eval::parseCard("Js"), Eval::parseCard("Tc")}), 5863);
+
+    // 7. Specific Two Pair: J-J-T-T-2 (Rank 2841) -> 7463 - 2841 = 4622
+    EXPECT_EQ(Eval::evaluate5({Eval::parseCard("Js"), Eval::parseCard("Jh"), Eval::parseCard("Ts"), Eval::parseCard("Th"), Eval::parseCard("2s")}), 4622);
+
+    // 8. Absolute Worst Hand: High Card 7-5-4-3-2 (Rank 7462) -> 7463 - 7462 = 1
+    EXPECT_EQ(Eval::evaluate5({Eval::parseCard("7s"), Eval::parseCard("5h"), Eval::parseCard("4d"), Eval::parseCard("3c"), Eval::parseCard("2s")}), 1);
+}
+
+TEST_F(EvaluatorHeavyTest, MonteCarloDifferentialStressTest) {
+    std::mt19937 rng(1337);
+    std::vector<int> deck_indices(52);
+    std::iota(deck_indices.begin(), deck_indices.end(), 0);
+
+    const int SAMPLES = 1000000;
+    
+    for (int i = 0; i < SAMPLES; ++i) {
+        std::shuffle(deck_indices.begin(), deck_indices.end(), rng);
+
+        int c[7];
+        for(int j=0; j<7; j++) c[j] = Eval::deck[deck_indices[j]];
+
+        int brute_force_max = 0;
+        for (int p = 0; p < 21; p++) {
+            int score = Eval::eval_5(
+                c[Eval::permutations[p][0]], c[Eval::permutations[p][1]],
+                c[Eval::permutations[p][2]], c[Eval::permutations[p][3]],
+                c[Eval::permutations[p][4]]
+            );
+            if (score > brute_force_max) brute_force_max = score;
+        }
+
+        int optimized_result = Eval::eval_7(c[0], c[1], c[2], c[3], c[4], c[5], c[6]);
+
+        ASSERT_EQ(optimized_result, brute_force_max)
+            << "Optimized eval_7 failed to find the absolute best 5-card combination on iteration " << i;
+            
+        int sub_5_score = Eval::eval_5(c[0], c[1], c[2], c[3], c[4]);
+        ASSERT_GE(optimized_result, sub_5_score);
+    }
+}

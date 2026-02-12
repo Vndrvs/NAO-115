@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include "eval/bucketer.hpp"
 #include "eval/evaluator.hpp"
+#include "eval/tables.hpp"
 #include <cmath>
 #include <vector>
 #include <array>
