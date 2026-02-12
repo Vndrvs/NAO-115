@@ -88,6 +88,4 @@ centroids.dat
 CMakeLists.txt.user
 
 # Igore source files
-**/bucketer.cpp
-**/bucketer.hpp
 **/centroids.dat
