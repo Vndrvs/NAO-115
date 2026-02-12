@@ -28,8 +28,8 @@ const int SAMPLES_FLOP  = 100000;
 const int SAMPLES_TURN  = 100000;
 const int SAMPLES_RIVER = 200000;
 
-std::vector<std::vector<std::array<float,4>>> centroids(3);
-std::vector<std::vector<std::array<float,2>>> feature_stats(3);
+std::vector<std::array<float,4>> centroids[3];
+std::vector<std::array<float,2>> feature_stats[3];
 
 bool initialized = false;
 
@@ -134,10 +134,19 @@ std::vector<std::array<float,4>> kmeans(
     std::uniform_int_distribution<size_t> U(0, n - 1);
 
     std::vector<std::array<float,4>> centroids(k);
+    
+    if (data.empty())
+        throw std::invalid_argument("kmeans: data is empty");
+
+    if (k <= 0)
+        throw std::invalid_argument("kmeans: k must be positive");
 
     // random init from data
     for (int i = 0; i < k; ++i)
         centroids[i] = data[U(rng)];
+    
+    if (k > static_cast<int>(data.size()))
+        throw std::invalid_argument("kmeans: k cannot exceed number of points");
 
     // temporary storage
     std::vector<std::array<float,4>> sum(k, {0.f,0.f,0.f,0.f});
@@ -170,7 +179,7 @@ std::vector<std::array<float,4>> kmeans(
             count[i] = 0;
         }
 
-        // accum. for centroid update
+        // accumulation for centroid update
         for (size_t i = 0; i < n; ++i) {
             size_t cluster = assignments[i];
             count[cluster]++;
@@ -347,6 +356,76 @@ void generate_centroids() {
         for(int i = 0; i < numFeatures; i++) out.write((char*)&feature_stats[street][i][1],sizeof(float));
         for(auto& c:centroids[street])
             out.write((char*)c.data(),numFeatures*sizeof(float));
+    }
+}
+
+void generate_centroids2(int samples_flop = SAMPLES_FLOP,
+                        int samples_turn = SAMPLES_TURN,
+                        int samples_river = SAMPLES_RIVER,
+                        const std::string& out_file = "centroids.dat") {
+    
+    // initialize deck
+    Eval::initialize();
+    std::cout << "Training bucketer\n";
+
+    for (int street = 0; street < 3; street++) {
+        int N;
+        if (street == 0) N = samples_flop;
+        else if (street == 1) N = samples_turn;
+        else N = samples_river;
+
+        std::vector<std::array<float,4>> data(N);
+
+        #pragma omp parallel
+        {
+            int tid = omp_get_thread_num();
+            std::mt19937 rng(123 + tid);
+            std::uniform_int_distribution<int> dist(0, 51);
+
+            #pragma omp for
+            for (int i = 0; i < N; ++i) {
+                if (street == 0) {
+                    std::array<int,2> hand;
+                    std::array<int,3> board;
+                    drawFlop(rng, dist, hand, board);
+                    Eval::BaseFeatures f = Eval::calculateFlopFeaturesFast(hand, board);
+                    data[i] = { f.e, f.e2, f.ppot, f.npot };
+                } else if (street == 1) {
+                    std::array<int,2> hand;
+                    std::array<int,4> board;
+                    drawTurn(rng, dist, hand, board);
+                    Eval::BaseFeatures f = Eval::calculateTurnFeaturesFast(hand, board);
+                    data[i] = { f.e, f.e2, f.ppot, f.npot };
+                } else {
+                    std::array<int,2> hand;
+                    std::array<int,5> board;
+                    drawRiver(rng, dist, hand, board);
+                    Eval::RiverFeatures f = Eval::calculateRiverFeatures(hand, board);
+                    data[i] = { f.eVsRandom, f.eVsTop, f.eVsMid, f.eVsBot };
+                }
+            }
+        }
+
+        compute_stats(data, feature_stats[street]);
+        apply_z(data, feature_stats[street]);
+
+        int k = (street == 0) ? FLOP_BUCKETS : (street == 1) ? TURN_BUCKETS : RIVER_BUCKETS;
+        if (k > N) k = N;
+        centroids[street] = kmeans(data, k);
+    }
+
+    std::ofstream out(out_file, std::ios::binary);
+    for (int street = 0; street < 3; street++) {
+        int numCentroids = static_cast<int>(centroids[street].size());
+        int numFeatures = 4;
+
+        out.write((char*)&numCentroids, sizeof(int));
+        out.write((char*)&numFeatures, sizeof(int));
+
+        for (int i = 0; i < numFeatures; i++) out.write((char*)&feature_stats[street][i][0], sizeof(float));
+        for (int i = 0; i < numFeatures; i++) out.write((char*)&feature_stats[street][i][1], sizeof(float));
+        for (auto& c : centroids[street])
+            out.write((char*)c.data(), numFeatures * sizeof(float));
     }
 }
 

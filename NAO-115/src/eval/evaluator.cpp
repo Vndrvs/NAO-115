@@ -113,13 +113,13 @@ int eval_7(int c1, int c2, int c3, int c4, int c5, int c6, int c7) {
     int h[7];
     
     // look up the Kev encoding per card and store it in the array
-    h[0] = deck[c1];
-    h[1] = deck[c2];
-    h[2] = deck[c3];
-    h[3] = deck[c4];
-    h[4] = deck[c5];
-    h[5] = deck[c6];
-    h[6] = deck[c7];
+    h[0] = c1;
+    h[1] = c2;
+    h[2] = c3;
+    h[3] = c4;
+    h[4] = c5;
+    h[5] = c6;
+    h[6] = c7;
 
     // count summary variables
     // eg. "As-Ks-Qs-Js-Ts-2d-9c"
@@ -246,7 +246,7 @@ int evaluate5(const std::vector<int>& cards) {
 
 // 6 cards wrapper - brute force choose 5 (average speed probably faster than bitmasking)
 int eval_6(int c1, int c2, int c3, int c4, int c5, int c6) {
-    int k[6] = { deck[c1], deck[c2], deck[c3], deck[c4], deck[c5], deck[c6] };
+    int k[6] = { c1, c2, c3, c4, c5, c6 };
     int best = 0;
     for (int drop = 0; drop < 6; ++drop) {
         int idx = 0, hand[5];
