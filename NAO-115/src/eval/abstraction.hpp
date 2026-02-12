@@ -14,19 +14,38 @@ namespace Eval {
  * NPot: Negative Potential
  */
 
-struct FlopFeatures {
+struct BaseFeatures {
     float e;
     float e2;
     float ppot;
     float npot;
 };
 
+struct RiverFeatures {
+    float eVsRandom;
+    float eVsTop;
+    float eVsMid;
+    float eVsBot;
+};
+
 // calculates the features
 
-double calculateHandStrength(const std::array<int, 2>& hand,
+float calculateFlopHandStrength(const std::array<int, 2>& hand,
                            const std::array<int, 3>& board);
 
-double calculateFlopFeatures(const std::array<int, 2>& hand,
+float calculateTurnHandStrength(const std::array<int, 2>& hand,
+                                const std::array<int, 4>& board);
+
+BaseFeatures calculateFlopFeaturesTwoAhead(const std::array<int, 2>& hand,
                            const std::array<int, 3>& board);
+
+BaseFeatures calculateFlopFeaturesFast(const std::array<int, 2>& hand,
+                           const std::array<int, 3>& board);
+
+BaseFeatures calculateTurnFeaturesFast(const std::array<int, 2>& hand,
+                           const std::array<int, 4>& board);
+
+RiverFeatures calculateRiverFeatures(const std::array<int, 2>& hand,
+                                        const std::array<int, 5>& board);
 
 }
