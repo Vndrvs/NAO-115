@@ -4,6 +4,12 @@
 
 namespace Bucketer {
 
+extern std::vector<std::array<float,4>> centroids[3];
+extern std::vector<std::array<float,2>> feature_stats[3];
+extern const int FLOP_BUCKETS;
+extern const int TURN_BUCKETS;
+extern const int RIVER_BUCKETS;
+
 int get_preflop_bucket(const std::vector<int>& h);
 std::vector<float> get_features_dynamic(const std::vector<int>& hand, const std::vector<int>& board);
 void compute_stats(const std::vector<std::array<float,4>>& data, std::vector<std::array<float,2>>& stats);
@@ -18,5 +24,9 @@ void initialize();
 // 0-1999: River
 int get_bucket(const std::vector<int>& hand, const std::vector<int>& board);
 void generate_centroids();
+void generate_centroids2(int samples_flop,
+                        int samples_turn,
+                        int samples_river,
+                         const std::string& out_file);
     
 }
