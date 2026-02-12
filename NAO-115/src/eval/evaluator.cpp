@@ -244,28 +244,17 @@ int evaluate5(const std::vector<int>& cards) {
 }
 
 // 6 cards wrapper - brute force choose 5 (average speed probably faster than bitmasking)
-int evaluate6(const std::vector<int>& cards) {
-    int k[6];
-    for(int i=0; i<6; ++i) k[i] = deck[cards[i]];
-    
-    // choose 5 from 6, combinatorics
-    // here, do a manual test of dropping a card each time, so at the end, the best score wins
-    int best = eval_5(k[1], k[2], k[3], k[4], k[5]);
-    int s;
-    s = eval_5(k[0], k[2], k[3], k[4], k[5]); if (s > best) best = s;
-    s = eval_5(k[0], k[1], k[3], k[4], k[5]); if (s > best) best = s;
-    s = eval_5(k[0], k[1], k[2], k[4], k[5]); if (s > best) best = s;
-    s = eval_5(k[0], k[1], k[2], k[3], k[5]); if (s > best) best = s;
-    s = eval_5(k[0], k[1], k[2], k[3], k[4]); if (s > best) best = s;
-    
+int eval_6(int c1, int c2, int c3, int c4, int c5, int c6) {
+    int k[6] = { deck[c1], deck[c2], deck[c3], deck[c4], deck[c5], deck[c6] };
+    int best = 0;
+    for (int drop = 0; drop < 6; ++drop) {
+        int idx = 0, hand[5];
+        for (int i = 0; i < 6; ++i) if (i != drop) hand[idx++] = k[i];
+        int score = eval_5(hand[0], hand[1], hand[2], hand[3], hand[4]);
+        if (score > best) best = score;
+    }
     return best;
 }
-
-// bridge vector to the pointer
-int evaluate7(const std::vector<int>& cards) {
-    return eval_7(cards.data());
-}
-
 
 }
 
