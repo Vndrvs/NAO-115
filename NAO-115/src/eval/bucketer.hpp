@@ -24,9 +24,5 @@ void initialize();
 // 0-1999: River
 int get_bucket(const std::vector<int>& hand, const std::vector<int>& board);
 void generate_centroids();
-void generate_centroids2(int samples_flop,
-                        int samples_turn,
-                        int samples_river,
-                         const std::string& out_file);
     
 }

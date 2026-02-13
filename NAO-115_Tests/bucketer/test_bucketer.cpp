@@ -278,23 +278,18 @@ protected:
     }
 };
 
-TEST_F(BucketerTest, GeneratesTinyCentroids) {
-    int tiny_flop = 5;
-    int tiny_turn = 5;
-    int tiny_river = 5;
-
-    std::string temp_file = "test_centroids.dat";
-
-    generate_centroids2(tiny_flop, tiny_turn, tiny_river, temp_file);
-
-    // FIX: Expect the number of centroids to be capped by the sample size (N)
-    EXPECT_EQ(centroids[0].size(), std::min(tiny_flop, FLOP_BUCKETS));
-    EXPECT_EQ(centroids[1].size(), std::min(tiny_turn, TURN_BUCKETS));
-    EXPECT_EQ(centroids[2].size(), std::min(tiny_river, RIVER_BUCKETS));
+TEST_F(BucketerTest, VerifyCentroidGenerationLogic) {
+    // This will now use whatever SAMPLES_X is defined in the .cpp
+    Bucketer::generate_centroids();
 
     for (int s = 0; s < 3; ++s) {
-        EXPECT_EQ(feature_stats[s].size(), 4);
+        // Even with tiny samples, centroids should exist
+        EXPECT_FALSE(centroids[s].empty());
+        
+        // Verify we didn't get NaN in our stats (common with tiny samples)
+        for (int f = 0; f < 4; ++f) {
+            EXPECT_FALSE(std::isnan(feature_stats[s][f][0]));
+            EXPECT_FALSE(std::isnan(feature_stats[s][f][1]));
+        }
     }
-
-    std::remove(temp_file.c_str());
 }

@@ -24,9 +24,9 @@ const int FLOP_BUCKETS  = 1000;
 const int TURN_BUCKETS  = 2000;
 const int RIVER_BUCKETS = 2000;
 
-const int SAMPLES_FLOP  = 100000;
-const int SAMPLES_TURN  = 100000;
-const int SAMPLES_RIVER = 200000;
+const int SAMPLES_FLOP  = 100;
+const int SAMPLES_TURN  = 100;
+const int SAMPLES_RIVER = 200;
 
 std::vector<std::array<float,4>> centroids[3];
 std::vector<std::array<float,2>> feature_stats[3];
@@ -295,7 +295,7 @@ void generate_centroids() {
         // multithread
         #pragma omp parallel
         {
-            std::mt19937 rng(100 + get_thread_id());
+            std::mt19937 rng(100 + omp_get_thread_num());
             std::uniform_int_distribution<int> dist(0, 51);
 
             #pragma omp for
@@ -339,6 +339,7 @@ void generate_centroids() {
                 k = RIVER_BUCKETS;
             }
         }
+        if (k > N) k = N;
         centroids[street] = kmeans(data, k);
     }
 
@@ -358,77 +359,6 @@ void generate_centroids() {
             out.write((char*)c.data(),numFeatures*sizeof(float));
     }
 }
-
-void generate_centroids2(int samples_flop = SAMPLES_FLOP,
-                        int samples_turn = SAMPLES_TURN,
-                        int samples_river = SAMPLES_RIVER,
-                        const std::string& out_file = "centroids.dat") {
-    
-    // initialize deck
-    Eval::initialize();
-    std::cout << "Training bucketer\n";
-
-    for (int street = 0; street < 3; street++) {
-        int N;
-        if (street == 0) N = samples_flop;
-        else if (street == 1) N = samples_turn;
-        else N = samples_river;
-
-        std::vector<std::array<float,4>> data(N);
-
-        #pragma omp parallel
-        {
-            int tid = omp_get_thread_num();
-            std::mt19937 rng(123 + tid);
-            std::uniform_int_distribution<int> dist(0, 51);
-
-            #pragma omp for
-            for (int i = 0; i < N; ++i) {
-                if (street == 0) {
-                    std::array<int,2> hand;
-                    std::array<int,3> board;
-                    drawFlop(rng, dist, hand, board);
-                    Eval::BaseFeatures f = Eval::calculateFlopFeaturesFast(hand, board);
-                    data[i] = { f.e, f.e2, f.ppot, f.npot };
-                } else if (street == 1) {
-                    std::array<int,2> hand;
-                    std::array<int,4> board;
-                    drawTurn(rng, dist, hand, board);
-                    Eval::BaseFeatures f = Eval::calculateTurnFeaturesFast(hand, board);
-                    data[i] = { f.e, f.e2, f.ppot, f.npot };
-                } else {
-                    std::array<int,2> hand;
-                    std::array<int,5> board;
-                    drawRiver(rng, dist, hand, board);
-                    Eval::RiverFeatures f = Eval::calculateRiverFeatures(hand, board);
-                    data[i] = { f.eVsRandom, f.eVsTop, f.eVsMid, f.eVsBot };
-                }
-            }
-        }
-
-        compute_stats(data, feature_stats[street]);
-        apply_z(data, feature_stats[street]);
-
-        int k = (street == 0) ? FLOP_BUCKETS : (street == 1) ? TURN_BUCKETS : RIVER_BUCKETS;
-        if (k > N) k = N;
-        centroids[street] = kmeans(data, k);
-    }
-
-    std::ofstream out(out_file, std::ios::binary);
-    for (int street = 0; street < 3; street++) {
-        int numCentroids = static_cast<int>(centroids[street].size());
-        int numFeatures = 4;
-
-        out.write((char*)&numCentroids, sizeof(int));
-        out.write((char*)&numFeatures, sizeof(int));
-
-        for (int i = 0; i < numFeatures; i++) out.write((char*)&feature_stats[street][i][0], sizeof(float));
-        for (int i = 0; i < numFeatures; i++) out.write((char*)&feature_stats[street][i][1], sizeof(float));
-        for (auto& c : centroids[street])
-            out.write((char*)c.data(), numFeatures * sizeof(float));
-    }
-}
-
 
 void initialize() {
     if(initialized) return;

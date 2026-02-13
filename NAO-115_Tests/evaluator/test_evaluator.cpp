@@ -78,7 +78,75 @@ TEST_F(EvaluatorHeavyTest, StraightFlushHierarchy) {
     EXPECT_LT(wheelFlush, sixFlush);
 }
 
+// test early exit firing
+
+TEST_F(EvaluatorHeavyTest, TriggerNoPairsShortcut) {
+    // 7 unique ranks: A, K, Q, J, 9, 8, 7.
+    // Mixed suits so it's NOT a flush.
+    // It should find the A-K-Q-J-9 high card hand.
+    int score = Eval::eval_7(
+        Eval::deck[Eval::parseCard("As")], Eval::deck[Eval::parseCard("Kh")],
+        Eval::deck[Eval::parseCard("Qd")], Eval::deck[Eval::parseCard("Jc")],
+        Eval::deck[Eval::parseCard("9s")], Eval::deck[Eval::parseCard("8h")],
+        Eval::deck[Eval::parseCard("7d")]
+    );
+
+    // Ace-high (A-K-Q-J-9) is Cactus Kev Rank 6186.
+    // Your Score: 7463 - 6186 = 1277.
+    EXPECT_EQ(score, 1277);
+}
+
 /*
+TEST_F(EvaluatorHeavyTest, TriggerFlushEarlyExit) {
+    // 6 Spades, no straight. Should trigger the high-to-low walk.
+    // Hand: As, Ks, Qs, Js, 9s, 2s (spades) + 3d (diamond)
+    int score = Eval::eval_7(
+        Eval::deck[Eval::parseCard("As")], Eval::deck[Eval::parseCard("Ks")],
+        Eval::deck[Eval::parseCard("Qs")], Eval::deck[Eval::parseCard("Js")],
+        Eval::deck[Eval::parseCard("9s")], Eval::deck[Eval::parseCard("2s")],
+        Eval::deck[Eval::parseCard("3d")]
+    );
+    
+    // Ace-high flush with 9 kicker (Kev Rank 323).
+    // Your Score: 7463 - 323 = 7140
+    EXPECT_EQ(score, 7140);
+}
+ 
+
+TEST_F(EvaluatorHeavyTest, TriggerStraightFlushEarlyExit) {
+    // 7-high Straight Flush in Hearts + 2 junk cards
+    // Hand: 7h, 6h, 5h, 4h, 3h (Hearts) + Kc, Qd
+    int score = Eval::eval_7(
+        Eval::deck[Eval::parseCard("7h")], Eval::deck[Eval::parseCard("6h")],
+        Eval::deck[Eval::parseCard("5h")], Eval::deck[Eval::parseCard("4h")],
+        Eval::deck[Eval::parseCard("3h")], Eval::deck[Eval::parseCard("Kc")],
+        Eval::deck[Eval::parseCard("Qd")]
+    );
+    
+    // 7-high Straight Flush (Kev Rank 8).
+    // Your Score: 7463 - 8 = 7455
+    EXPECT_EQ(score, 7455);
+}
+
+
+
+TEST_F(EvaluatorHeavyTest, TriggerWheelStraightFlushEarlyExit) {
+    // Ace-low Straight Flush in Diamonds
+    // Hand: Ad, 2d, 3d, 4d, 5d + Ks, Qh
+    int score = Eval::eval_7(
+        Eval::deck[Eval::parseCard("Ad")], Eval::deck[Eval::parseCard("2d")],
+        Eval::deck[Eval::parseCard("3d")], Eval::deck[Eval::parseCard("4d")],
+        Eval::deck[Eval::parseCard("5d")], Eval::deck[Eval::parseCard("Ks")],
+        Eval::deck[Eval::parseCard("Qh")]
+    );
+    
+    // 5-high Straight Flush (Kev Rank 10).
+    // Your Score: 7463 - 10 = 7453
+    EXPECT_EQ(score, 7453);
+}
+
+
+
 TEST_F(EvaluatorHeavyTest, MonteCarloDifferentialStressTest) {
     std::mt19937 rng(1337);
     std::vector<int> deck_indices(52);
