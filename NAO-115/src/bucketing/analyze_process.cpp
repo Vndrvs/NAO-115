@@ -16,10 +16,19 @@ namespace Bucketer {
 
 // 1 - DATA DISTRIBUTION BEFORE CLUSTERING
 
-std::ofstream file;
-const int NUM_FEATURES = 4;
+DataDistributionLogger::DataDistributionLogger(const std::string& filename)
+{
+    file_.open(filename);
+    if (!file_) throw std::runtime_error("Failed to open log file: " + filename);
+}
 
-float calculateVariance(const std::vector<float>& dataset, float mean) {
+DataDistributionLogger::~DataDistributionLogger() {
+    if (file_.is_open()) file_.close();
+}
+
+// helpers
+
+float DataDistributionLogger::calculateVariance(const std::vector<float>& dataset, float mean) {
     double sumOfSqDifferences = 0.0;
     size_t n = dataset.size();
     
@@ -36,7 +45,7 @@ float calculateVariance(const std::vector<float>& dataset, float mean) {
     }
 }
 
-float findMedian(std::vector<float> dataset) {
+float DataDistributionLogger::findMedian(std::vector<float> dataset) {
     if(dataset.empty()) {
         return 0.0f;
     }
@@ -51,7 +60,15 @@ float findMedian(std::vector<float> dataset) {
     }
 }
 
-std::pair<float, float> calculateMeanVariance(const std::vector<float>& inputVector) {
+int DataDistributionLogger::getBinIndex(float value, float min_v, float range, int num_bins) {
+    if (range < 1e-9) return 0;
+    int bin = static_cast<int>((value - min_v) / range * (num_bins - 0.001f));
+    if (bin < 0) bin = 0;
+    if (bin >= num_bins) bin = num_bins - 1;
+    return bin;
+}
+
+std::pair<float, float> DataDistributionLogger::calculateMeanVariance(const std::vector<float>& inputVector) {
     
     if (inputVector.empty()) {
         return {0.0f, 0.0f};
@@ -71,11 +88,13 @@ std::pair<float, float> calculateMeanVariance(const std::vector<float>& inputVec
     return { mean, variance };
 }
 
-void logMoments(const std::vector<std::vector<float>>& features,
+// core loggers
+
+void DataDistributionLogger::logMoments(const std::vector<std::vector<float>>& features,
                 std::vector<double>& means,
                 std::vector<double>& stds) {
-    file << "1.1 Moments & Shape\n";
-    file << "Feature, Mean, StdDev, Skew, Kurtosis\n";
+    file_ << "1.1 Moments & Shape\n";
+    file_ << "Feature, Mean, StdDev, Skew, Kurtosis\n";
     
     means.resize(NUM_FEATURES);
     stds.resize(NUM_FEATURES);
@@ -104,40 +123,37 @@ void logMoments(const std::vector<std::vector<float>>& features,
         double skew = 0.0;
         double kurtosis = 0.0;
         
+        if (N > 0) {
+            m3 = m3_sum / N;
+            m4 = m4_sum / N;
+        }
+        
         if (variance > 1e-9) {
             skew = m3 / std::pow(stds[f], 3);
             kurtosis = (m4 / (variance * variance)) - 3.0;
         }
         
-        file << "F" << f << ", " << means[f] << ", " << stds[f] << ", " << skew << ", " << kurtosis << "\n";
+        file_ << "F" << f << ", " << means[f] << ", " << stds[f] << ", " << skew << ", " << kurtosis << "\n";
     }
 }
 
-int get_bin_index(float value, float min_v, float range, int num_bins) {
-    if (range < 1e-9) return 0;
-    int bin = static_cast<int>((value - min_v) / range * (num_bins - 0.001f));
-    if (bin < 0) bin = 0;
-    if (bin >= num_bins) bin = num_bins - 1;
-    return bin;
-}
-
-void logOutliers(const std::vector<std::vector<float>>& features,
+void DataDistributionLogger::logOutliers(const std::vector<std::vector<float>>& features,
                  const std::vector<double>& means,
                  const std::vector<double>& stds,
                  const std::vector<std::string>& labels)
 {
-    if (!file.is_open()) return;
+    if (!file_.is_open()) return;
     
-    file << ">>> 1.2 Extreme Values & Histograms (Statistical Analysis) <<<\n";
+    file_ << ">>> 1.2 Extreme Values & Histograms (Statistical Analysis) <<<\n";
     
     size_t N = features[0].size();
     
     // calculate Rice's rule for binning (formula: k = 2 * N^(1/3))
     int rice_count = static_cast<int>(2.0 * std::pow(N, 1.0/3.0));
     
-    file << "Binning Logic: \n";
-    file << "  * Visual Bins: 50 (Fixed 2% resolution for readability)\n";
-    file << "  * Rice's Rule: " << rice_count << " (Optimal for N = " << N << ")\n\n";
+    file_ << "Binning Logic: \n";
+    file_ << "  * Visual Bins: 50 (Fixed 2% resolution for readability)\n";
+    file_ << "  * Rice's Rule: " << rice_count << " (Optimal for N = " << N << ")\n\n";
     
     for (int f = 0; f < NUM_FEATURES; ++f) {
         // statistics for this feature
@@ -171,44 +187,44 @@ void logOutliers(const std::vector<std::vector<float>>& features,
             if (v >= mid_low && v <= mid_high) mid_band_count++;
             
             // populate visual histogram
-            visualBins[get_bin_index(v, min_v, range, 50)]++;
+            visualBins[getBinIndex(v, min_v, range, 50)]++;
             
             // populate Rice histogram
-            riceBins[get_bin_index(v, min_v, range, rice_count)]++;
+            riceBins[getBinIndex(v, min_v, range, rice_count)]++;
         }
         
-        file << "--- Feature: " << labels[f] << " ---\n";
-        file << "Range: [" << min_v << ", " << max_v << "]\n";
-        file << "2-Sigma Low  (< " << thresh_low << "): " << low_sigma_count
+        file_ << "--- Feature: " << labels[f] << " ---\n";
+        file_ << "Range: [" << min_v << ", " << max_v << "]\n";
+        file_ << "2-Sigma Low  (< " << thresh_low << "): " << low_sigma_count
         << " (" << std::fixed << std::setprecision(2) << (100.0 * low_sigma_count / N) << "%)\n";
-        file << "2-Sigma High (> " << thresh_high << "): " << high_sigma_count
+        file_ << "2-Sigma High (> " << thresh_high << "): " << high_sigma_count
         << " (" << (100.0 * high_sigma_count / N) << "%)\n";
-        file << "Middle 10%   (" << mid_low << "-" << mid_high << "): " << mid_band_count
+        file_ << "Middle 10%   (" << mid_low << "-" << mid_high << "): " << mid_band_count
         << " (" << (100.0 * mid_band_count / N) << "%)\n";
         
         // CSV block 1 (visual)
-        file << "\n[CSV] Visual Histogram (50 Bins)\n";
-        file << "BinStart, Count\n";
+        file_ << "\n[CSV] Visual Histogram (50 Bins)\n";
+        file_ << "BinStart, Count\n";
         for (int b = 0; b < 50; ++b) {
             float start = min_v + (range * b / 50.0f);
-            file << start << ", " << visualBins[b] << "\n";
+            file_ << start << ", " << visualBins[b] << "\n";
         }
         
         // CSV block 2 (Rice Rule based)
-        file << "\n[CSV] Scientific Histogram (Rice Rule n=" << rice_count << ")\n";
-        file << "BinStart, Count\n";
+        file_ << "\n[CSV] Scientific Histogram (Rice Rule n=" << rice_count << ")\n";
+        file_ << "BinStart, Count\n";
         for (int b = 0; b < rice_count; ++b) {
             float start = min_v + (range * b / static_cast<float>(rice_count));
-            file << start << ", " << riceBins[b] << "\n";
+            file_ << start << ", " << riceBins[b] << "\n";
         }
-        file << "\n";
+        file_ << "\n";
     }
-    file.flush();
+    file_.flush();
 }
 
-void logQuantiles(std::vector<std::vector<float>> features, const std::vector<std::string>& labels) {
-    file << "1.3 Quantiles (Distribution Shape)\n";
-    file << "Feature, Min, P1, P5, P25, Median, P75, P95, P99, Max\n";
+void DataDistributionLogger::logQuantiles(std::vector<std::vector<float>> features, const std::vector<std::string>& labels) {
+    file_ << "1.3 Quantiles (Distribution Shape)\n";
+    file_ << "Feature, Min, P1, P5, P25, Median, P75, P95, P99, Max\n";
     
     size_t N = features[0].size();
     
@@ -216,11 +232,12 @@ void logQuantiles(std::vector<std::vector<float>> features, const std::vector<st
         // sort the feature data locally
         std::sort(features[f].begin(), features[f].end());
         
+        // quantiles computed as floor(q * N) on sorted data (empirical CDF)
         auto qidx = [&](double q) {
             return std::min(static_cast<size_t>(q * N), N - 1);
         };
         
-        file << labels[f] << ", "
+        file_ << labels[f] << ", "
              << features[f][qidx(0.00)] << ", "
              << features[f][qidx(0.01)] << ", "
              << features[f][qidx(0.05)] << ", "
@@ -231,15 +248,15 @@ void logQuantiles(std::vector<std::vector<float>> features, const std::vector<st
              << features[f][qidx(0.99)] << ", "
              << features[f][N - 1] << "\n";
     }
-    file << "\n";
+    file_ << "\n";
 }
 
-void logCorrelationAndPCA(const std::vector<std::array<float, 4>>& data,
+void DataDistributionLogger::logCorrelationAndPCA(const std::vector<std::array<float, 4>>& data,
                           const std::vector<double>& means,
                           const std::vector<double>& stds,
                           const std::vector<std::string>& labels)
 {
-    file << "1.4 Correlation & PCA\n";
+    file_ << "1.4 Correlation & PCA\n";
     size_t N = data.size();
     int n = 4;
     
@@ -254,12 +271,12 @@ void logCorrelationAndPCA(const std::vector<std::array<float, 4>>& data,
     }
     
     // finalize covariance and calculate correlation matrix
-    file << "Correlation Matrix (Copy to Excel for Heatmap):\n ,";
-    for(auto& l : labels) file << l << ",";
-    file << "\n";
+    file_ << "Correlation Matrix (Copy to Excel for Heatmap):\n ,";
+    for(auto& l : labels) file_ << l << ",";
+    file_ << "\n";
     
     for (int r = 0; r < n; r++) {
-        file << labels[r] << ",";
+        file_ << labels[r] << ",";
         for (int c = 0; c < n; c++) {
             cov[r][c] /= (N - 1);
             double corr_val = 0.0;
@@ -268,10 +285,10 @@ void logCorrelationAndPCA(const std::vector<std::array<float, 4>>& data,
             } else {
                 corr_val = (r == c) ? 1.0 : 0.0;
             }
-            file << std::fixed << std::setprecision(4) << corr_val << (c < 3 ? "," : "\n");
+            file_ << std::fixed << std::setprecision(4) << corr_val << (c < 3 ? "," : "\n");
         }
     }
-    file << "\n";
+    file_ << "\n";
     
     // 3. PCA using jacobi_pd
     double* evals = new double[n];
@@ -302,14 +319,14 @@ void logCorrelationAndPCA(const std::vector<std::array<float, 4>>& data,
             if (v > 0) total_var += v;
         }
 
-        file << "PCA Eigenvalues (Variance Explained):\n";
+        file_ << "PCA Eigenvalues (Variance Explained):\n";
         for (int i = 0; i < n; i++) {
             double pct = (total_var > 0) ? (eigvals[i] / total_var * 100.0) : 0.0;
-            file << "PC" << i << ": " << std::scientific << eigvals[i]
+            file_ << "PC" << i << ": " << std::scientific << eigvals[i]
                  << " (" << std::fixed << std::setprecision(2) << pct << "%)\n";
         }
     } else {
-        file << "Error: PCA failed to converge.\n";
+        file_ << "Error: PCA failed to converge.\n";
     }
     
     // cleanup using library helpers
@@ -317,14 +334,14 @@ void logCorrelationAndPCA(const std::vector<std::array<float, 4>>& data,
     matrix_alloc_jpd::Dealloc2D(&M_input);
     delete[] evals;
     
-    file.flush();
+    file_.flush();
 }
 
-void log_everything(int street, const std::vector<std::array<float, 4>>& data) {
-    if (!file.is_open()) return;
+void DataDistributionLogger::log_distribution(int street, const std::vector<std::array<float, 4>>& data) {
+    if (!file_.is_open()) return;
     
-    file << ">>> Data Distribution: Street " << street << " <<<\n";
-    file << "Sample size: " << data.size() << " samples\n\n";
+    file_ << ">>> Data Distribution: Street " << street << " <<<\n";
+    file_ << "Sample size: " << data.size() << " samples\n\n";
     
     // transpose data
     std::vector<std::vector<float>> features(NUM_FEATURES, std::vector<float>(data.size()));
@@ -377,6 +394,5 @@ void logSummary(int totalIters, float initialInertia, float finalInertia, int em
     file << "Empty Cluster Reseeds: " << emptyClusterReseeds << "\n";
     file << "----------------------\n\n";
 }
-
 
 }
