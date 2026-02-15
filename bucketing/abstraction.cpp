@@ -1,11 +1,9 @@
 #include "abstraction.hpp"
-#include "evaluator.hpp"
+#include "eval/evaluator.hpp"
 
 /*
- 
 Effective Hand Strength algorithm derived from research paper: Opponent Modeling in Poker (1998)
 by computer scientists Darse Billings, Denis Papp, Jonathan Schaeffer and Duane Szafron
-
 */
 
 namespace Eval {

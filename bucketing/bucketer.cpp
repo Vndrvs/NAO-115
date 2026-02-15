@@ -1,5 +1,5 @@
 #include "bucketer.hpp"
-#include "evaluator.hpp"
+#include "eval/evaluator.hpp"
 #include "abstraction.hpp"
 #include <vector>
 #include <algorithm>
@@ -8,6 +8,8 @@
 #include <random>
 #include <iostream>
 #include <numeric>
+#include <atomic>
+#include <filesystem>
 
 // I have to compile omp later because I'm building on macOS
 #ifdef _OPENMP
@@ -20,13 +22,13 @@ namespace Bucketer {
 
 // CONFIGURATION
 
-const int FLOP_BUCKETS  = 1000;
-const int TURN_BUCKETS  = 2000;
-const int RIVER_BUCKETS = 2000;
+const int FLOP_BUCKETS  = 15;
+const int TURN_BUCKETS  = 20;
+const int RIVER_BUCKETS = 50;
 
-const int SAMPLES_FLOP  = 100;
-const int SAMPLES_TURN  = 100;
-const int SAMPLES_RIVER = 200;
+const int SAMPLES_FLOP  = 2000;
+const int SAMPLES_TURN  = 3000;
+const int SAMPLES_RIVER = 5000;
 
 std::vector<std::array<float,4>> centroids[3];
 std::vector<std::array<float,2>> feature_stats[3];
@@ -270,93 +272,77 @@ void drawRiver(std::mt19937& rng, std::uniform_int_distribution<int>& dist,
     }
 }
 
+
 // CENTROID ARITHMETIC
 
 void generate_centroids() {
-    
-    // initialize deck
     Eval::initialize();
-    std::cout<<"Training bucketer\n";
+    std::cout << "Training bucketer..." << std::endl;
 
     for(int street = 0; street < 3; street++) {
         int N;
-        
-        // get sample sizing
-        if (street == 0) {
-            N = SAMPLES_FLOP;
-        } else if (street == 1) {
-            N = SAMPLES_TURN;
-        } else {
-            N = SAMPLES_RIVER;
-        }
+        if (street == 0) N = SAMPLES_FLOP;
+        else if (street == 1) N = SAMPLES_TURN;
+        else N = SAMPLES_RIVER;
         
         std::vector<std::array<float, 4>> data(N);
-
-        // multithread
+        
         #pragma omp parallel
         {
-            std::mt19937 rng(100 + omp_get_thread_num());
+            std::mt19937 rng(100 + get_thread_id());
             std::uniform_int_distribution<int> dist(0, 51);
-
+            
             #pragma omp for
             for (int i = 0; i < N; ++i) {
-                // calculate feature arrays for all streets by calling draw functions and using the abstraction arithmetic
                 if (street == 0) {
-                    std::array<int,2> hand;
-                    std::array<int,3> board;
+                    std::array<int,2> hand; std::array<int,3> board;
                     drawFlop(rng, dist, hand, board);
                     Eval::BaseFeatures f = Eval::calculateFlopFeaturesFast(hand, board);
                     data[i] = { f.e, f.e2, f.ppot, f.npot };
-                }
-                else if (street == 1) {
-                    std::array<int,2> hand;
-                    std::array<int,4> board;
+                } else if (street == 1) {
+                    std::array<int,2> hand; std::array<int,4> board;
                     drawTurn(rng, dist, hand, board);
                     Eval::BaseFeatures f = Eval::calculateTurnFeaturesFast(hand, board);
                     data[i] = { f.e, f.e2, f.ppot, f.npot };
-                }
-                else {
-                    std::array<int,2> hand;
-                    std::array<int,5> board;
+                } else {
+                    std::array<int,2> hand; std::array<int,5> board;
                     drawRiver(rng, dist, hand, board);
                     Eval::RiverFeatures f = Eval::calculateRiverFeatures(hand, board);
                     data[i] = { f.eVsRandom, f.eVsTop, f.eVsMid, f.eVsBot };
                 }
             }
         }
-
-        // call maths helpers to calculate centroids
-        compute_stats(data,feature_stats[street]);
-        apply_z(data,feature_stats[street]);
         
-        int k;
-        if (street == 0) {
-            k = FLOP_BUCKETS;
-        } else {
-            if (street == 1) {
-                k = TURN_BUCKETS;
-            } else {
-                k = RIVER_BUCKETS;
-            }
-        }
+        compute_stats(data, feature_stats[street]);
+        apply_z(data, feature_stats[street]);
+        
+        int k = (street == 0) ? FLOP_BUCKETS : (street == 1) ? TURN_BUCKETS : RIVER_BUCKETS;
+        
         if (k > N) k = N;
+        
         centroids[street] = kmeans(data, k);
     }
 
-    // write binary file
-    std::ofstream out("centroids.dat",std::ios::binary);
+    std::ofstream out("centroids.dat", std::ios::binary);
     
-    for(int street = 0; street < 3; street++){
-        int numCentroids = static_cast<int>(centroids[street].size());
-        int numFeatures = 4;
-        
-        out.write((char*)&numCentroids,sizeof(int));
-        out.write((char*)&numFeatures,sizeof(int));
-        
-        for(int i = 0 ; i < numFeatures; i++) out.write((char*)&feature_stats[street][i][0],sizeof(float));
-        for(int i = 0; i < numFeatures; i++) out.write((char*)&feature_stats[street][i][1],sizeof(float));
-        for(auto& c:centroids[street])
-            out.write((char*)c.data(),numFeatures*sizeof(float));
+    if (!out.is_open()) {
+        std::cerr << "Error: Could not open centroids.dat for writing!" << std::endl;
+    } else {
+        for(int street = 0; street < 3; street++){
+            int numCentroids = static_cast<int>(centroids[street].size());
+            int numFeatures = 4;
+            
+            out.write((char*)&numCentroids, sizeof(int));
+            out.write((char*)&numFeatures, sizeof(int));
+            
+            for(int i = 0 ; i < numFeatures; i++) out.write((char*)&feature_stats[street][i][0], sizeof(float));
+            for(int i = 0; i < numFeatures; i++) out.write((char*)&feature_stats[street][i][1], sizeof(float));
+            
+            for(auto& c : centroids[street])
+                out.write((char*)c.data(), numFeatures * sizeof(float));
+        }
+        out.close();
+        std::cout << "Bucketer training finished." << std::endl;
     }
 }
 
@@ -376,12 +362,10 @@ void initialize() {
         
         feature_stats[s].resize(numFeatures, {0.f, 0.f});
         
-        // Read Stats
         for(int i=0; i<numFeatures; i++) in.read((char*)&feature_stats[s][i][0], sizeof(float));
         for(int i=0; i<numFeatures; i++) in.read((char*)&feature_stats[s][i][1], sizeof(float));
         
-        // Read Centroids
-        centroids[s].resize(numCentroids); // resize vector of arrays
+        centroids[s].resize(numCentroids);
         for(int i=0; i<numCentroids; i++) {
             in.read((char*)centroids[s][i].data(), numFeatures * sizeof(float));
         }
@@ -407,7 +391,6 @@ int get_bucket(const std::vector<int>& h, const std::vector<int>& b) {
 
     int st = b.size()==3 ? 0 : b.size()==4 ? 1 : 2;
     
-    // 1. Get Features (Vector)
     std::vector<float> f_vec;
     if (st == 2) {
         f_vec = get_features_river_runtime(h, b);
@@ -415,9 +398,6 @@ int get_bucket(const std::vector<int>& h, const std::vector<int>& b) {
         f_vec = get_features_dynamic(h, b);
     }
 
-    // 2. Normalize
-    // We use a temporary array because our centroids are std::array<float,4>
-    // but the input f_vec is std::vector.
     std::vector<float> f_norm = f_vec;
 
     for(int i=0; i<4; i++){ // We know dim is 4
@@ -426,13 +406,11 @@ int get_bucket(const std::vector<int>& h, const std::vector<int>& b) {
         if(s > 1e-9f) f_norm[i] = (f_norm[i] - m) / s;
     }
 
-    // 3. Find Nearest Centroid
     int best = 0;
     float min_dist = std::numeric_limits<float>::max();
     
     for(int i=0; i < centroids[st].size(); i++){
-        // We need a dist_sq that handles (vector, array)
-        // Or simply unroll the loop here for speed
+
         float d = 0.f;
         for(int k=0; k<4; k++) {
             float diff = f_norm[k] - centroids[st][i][k];

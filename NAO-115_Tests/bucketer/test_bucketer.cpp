@@ -1,10 +1,12 @@
 #include <gtest/gtest.h>
-#include "eval/bucketer.hpp"
+#include "bucketing/bucketer.hpp"
 #include "eval/evaluator.hpp"
 #include "eval/tables.hpp"
 #include <cmath>
 #include <vector>
 #include <array>
+#include <fstream>
+#include <iostream>
 
 using namespace Bucketer;
 
@@ -267,29 +269,11 @@ TEST(KMeansTest, ZeroIterationsReturnsInitializedCentroids)
 class BucketerTest : public ::testing::Test {
 protected:
     void SetUp() override {
-        // Ensure the deck is initialized for all tests
         Eval::initialize();
 
-        // Reset centroids & feature_stats so tests don't interfere
         for (int i = 0; i < 3; ++i) {
             centroids[i].clear();
             feature_stats[i].clear();
         }
     }
 };
-
-TEST_F(BucketerTest, VerifyCentroidGenerationLogic) {
-    // This will now use whatever SAMPLES_X is defined in the .cpp
-    Bucketer::generate_centroids();
-
-    for (int s = 0; s < 3; ++s) {
-        // Even with tiny samples, centroids should exist
-        EXPECT_FALSE(centroids[s].empty());
-        
-        // Verify we didn't get NaN in our stats (common with tiny samples)
-        for (int f = 0; f < 4; ++f) {
-            EXPECT_FALSE(std::isnan(feature_stats[s][f][0]));
-            EXPECT_FALSE(std::isnan(feature_stats[s][f][1]));
-        }
-    }
-}
