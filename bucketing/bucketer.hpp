@@ -17,12 +17,9 @@ void apply_z(std::vector<std::array<float,4>>& data, const std::vector<std::arra
 std::vector<std::array<float,4>> kmeans(const std::vector<std::array<float,4>>& data, int k, int max_iters = 100);
 void initialize();
 
-// The Main API: Returns Bucket ID
-// 0-168: Preflop
-// 0-999: Flop (Caller must manage offsets, e.g. flop_offset + bucket)
-// 0-1999: Turn
-// 0-1999: River
 int get_bucket(const std::vector<int>& hand, const std::vector<int>& board);
 void generate_centroids();
-    
+void analyze_centroids_full();
+void bucketer_health_check();
+
 }
