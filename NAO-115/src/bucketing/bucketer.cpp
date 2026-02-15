@@ -14,6 +14,9 @@
 #include <stdexcept>
 #include <limits>
 #include <random>
+#include <chrono>
+#include <iomanip>
+#include <ctime>
 
 
 // I have to compile omp later because I'm building on macOS
@@ -55,9 +58,18 @@ int get_preflop_bucket(const std::vector<int>& h) {
     int s1 = h[0] % 4, s2 = h[1] % 4;
     int hi = std::max(r1, r2);
     int lo = std::min(r1, r2);
-    if (hi == lo) return hi;
+    
+    if (hi == lo) {
+        return hi;
+    }
+    
     int idx = hi * (hi - 1) / 2 + lo;
-    return (s1 == s2) ? (13 + idx) : (91 + idx);
+    
+    if (s1 == s2) {
+        return 13 + idx;
+    } else {
+        return 91 + idx;
+    }
 }
 
 // CALCULATE FLOP AND TURN FEATURES
@@ -121,10 +133,13 @@ void apply_z(std::vector<std::array<float,4>>& data,
 {
     const size_t dim = 4;
 
-    for (auto& point : data)
-        for (size_t i = 0; i < dim; ++i)
-            if (stats[i][1] > 1e-9f)
+    for (auto& point : data) {
+        for (size_t i = 0; i < dim; ++i) {
+            if (stats[i][1] > 1e-9f) {
                 point[i] = (point[i] - stats[i][0]) / stats[i][1];
+            }
+        }
+    }
 }
 
 // KMEANS
@@ -138,12 +153,15 @@ std::vector<std::array<float,4>> kmeans(
     const size_t dim = 4;
     int num_threads = omp_get_max_threads();
 
-    if (data.empty())
+    if (data.empty()) {
         throw std::invalid_argument("K-means: Data is empty");
-    if (k <= 0)
+    }
+    if (k <= 0) {
         throw std::invalid_argument("K-means: k must be positive");
-    if (k > static_cast<int>(n))
+    }
+    if (k > static_cast<int>(n)) {
         throw std::invalid_argument("K-means: k cannot exceed number of points");
+    }
 
     std::vector<size_t> assignments(n, 0);
     std::vector<std::array<float,4>> centroids(k);
@@ -354,7 +372,6 @@ void drawRiver(std::mt19937& rng, std::uniform_int_distribution<int>& dist,
     }
 }
 
-
 // CENTROID ARITHMETIC
 
 void generate_centroids() {
@@ -363,9 +380,13 @@ void generate_centroids() {
 
     for(int street = 0; street < 3; street++) {
         int N;
-        if (street == 0) N = SAMPLES_FLOP;
-        else if (street == 1) N = SAMPLES_TURN;
-        else N = SAMPLES_RIVER;
+        if (street == 0) {
+            N = SAMPLES_FLOP;
+        } else if (street == 1) {
+            N = SAMPLES_TURN;
+        } else {
+            N = SAMPLES_RIVER;
+        }
         
         std::vector<std::array<float, 4>> data(N);
         
@@ -398,9 +419,18 @@ void generate_centroids() {
         compute_stats(data, feature_stats[street]);
         apply_z(data, feature_stats[street]);
         
-        int k = (street == 0) ? FLOP_BUCKETS : (street == 1) ? TURN_BUCKETS : RIVER_BUCKETS;
+        int k;
+        if (street == 0) {
+            k = FLOP_BUCKETS;
+        } else if (street == 1) {
+            k = TURN_BUCKETS;
+        } else {
+            k = RIVER_BUCKETS;
+        }
         
-        if (k > N) k = N;
+        if (k > N) {
+            k = N;
+        }
         
         centroids[street] = kmeans(data, k);
     }
@@ -417,11 +447,16 @@ void generate_centroids() {
             out.write((char*)&numCentroids, sizeof(int));
             out.write((char*)&numFeatures, sizeof(int));
             
-            for(int i = 0 ; i < numFeatures; i++) out.write((char*)&feature_stats[street][i][0], sizeof(float));
-            for(int i = 0; i < numFeatures; i++) out.write((char*)&feature_stats[street][i][1], sizeof(float));
+            for(int i = 0 ; i < numFeatures; i++) {
+                out.write((char*)&feature_stats[street][i][0], sizeof(float));
+            }
+            for(int i = 0; i < numFeatures; i++) {
+                out.write((char*)&feature_stats[street][i][1], sizeof(float));
+            }
             
-            for(auto& c : centroids[street])
+            for(auto& c : centroids[street]) {
                 out.write((char*)c.data(), numFeatures * sizeof(float));
+            }
         }
         out.close();
         std::cout << "Bucketer training finished." << std::endl;
@@ -429,7 +464,10 @@ void generate_centroids() {
 }
 
 void initialize() {
-    if(initialized) return;
+    if(initialized) {
+        return;
+    }
+    
     std::ifstream in("centroids.dat", std::ios::binary);
     
     if(!in.is_open()) {
@@ -443,9 +481,13 @@ void initialize() {
         in.read((char*)&numFeatures, sizeof(int));
         
         feature_stats[s].resize(numFeatures, {0.f, 0.f});
+        for(int i=0; i<numFeatures; i++) {
+            in.read((char*)&feature_stats[s][i][0], sizeof(float));
+        }
         
-        for(int i=0; i<numFeatures; i++) in.read((char*)&feature_stats[s][i][0], sizeof(float));
-        for(int i=0; i<numFeatures; i++) in.read((char*)&feature_stats[s][i][1], sizeof(float));
+        for(int i=0; i<numFeatures; i++) {
+            in.read((char*)&feature_stats[s][i][1], sizeof(float));
+        }
         
         centroids[s].resize(numCentroids);
         for(int i=0; i<numCentroids; i++) {
@@ -468,8 +510,12 @@ std::vector<float> get_features_river_runtime(
 }
 
 int get_bucket(const std::vector<int>& h, const std::vector<int>& b) {
-    if(b.empty()) return get_preflop_bucket(h);
-    if(!initialized) initialize();
+    if(b.empty()) {
+        return get_preflop_bucket(h);
+    }
+    if(!initialized) {
+        initialize();
+    }
 
     int st = b.size()==3 ? 0 : b.size()==4 ? 1 : 2;
     
@@ -485,21 +531,22 @@ int get_bucket(const std::vector<int>& h, const std::vector<int>& b) {
     for(int i=0; i<4; i++){ // We know dim is 4
         float m = feature_stats[st][i][0];
         float s = feature_stats[st][i][1];
-        if(s > 1e-9f) f_norm[i] = (f_norm[i] - m) / s;
+        if(s > 1e-9f) {
+            f_norm[i] = (f_norm[i] - m) / s;
+        }
     }
 
     int best = 0;
     float min_dist = std::numeric_limits<float>::max();
     
     for(int i=0; i < centroids[st].size(); i++){
-
         float d = 0.f;
         for(int k=0; k<4; k++) {
             float diff = f_norm[k] - centroids[st][i][k];
             d += diff * diff;
         }
         
-        if(d < min_dist){
+        if(d < min_dist) {
             min_dist = d;
             best = i;
         }
