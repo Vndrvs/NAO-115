@@ -344,44 +344,39 @@ void log_everything(int street, const std::vector<std::array<float, 4>>& data) {
     logCorrelationAndPCA(data, shared_means, shared_stds, labels);
 }
 
-// K-MEANS CONVERGENCE
+// K-MEANS CONVERGENCE (class: KMeansLogger)
 
-class KMeansLogger {
-public:
-    KMeansLogger(const std::string& filename) : file(filename) {}
+KMeansLogger(const std::string& filename) : file(filename) {}
 
-    ~KMeansLogger() {
-        if (file.is_open()) file.close();
-    }
+~KMeansLogger() {
+    if (file.is_open()) file.close();
+}
 
-    // after each iteration
-    void logIteration(int iter, float inertia, float centroidDelta, const std::vector<int>& clusterCounts) {
-        if (!file.is_open()) return;
+// after each iteration
+void logIteration(int iter, float inertia, float centroidDelta, const std::vector<int>& clusterCounts) {
+    if (!file.is_open()) return;
+    
+    int minCount = *std::min_element(clusterCounts.begin(), clusterCounts.end());
+    int maxCount = *std::max_element(clusterCounts.begin(), clusterCounts.end());
+    
+    file << "Iteration: " << iter
+    << ", Inertia: " << inertia
+    << ", CentroidDelta: " << centroidDelta
+    << ", MinClusterSize: " << minCount
+    << ", MaxClusterSize: " << maxCount << "\n";
+}
 
-        int minCount = *std::min_element(clusterCounts.begin(), clusterCounts.end());
-        int maxCount = *std::max_element(clusterCounts.begin(), clusterCounts.end());
+// after K-means function completes
+void logSummary(int totalIters, float initialInertia, float finalInertia, int emptyClusterReseeds) {
+    if (!file.is_open()) return;
+    
+    file << "\n--- K-Means Summary ---\n";
+    file << "Initial Inertia: " << initialInertia << "\n";
+    file << "Final Inertia:   " << finalInertia << "\n";
+    file << "Iterations:      " << totalIters << "\n";
+    file << "Empty Cluster Reseeds: " << emptyClusterReseeds << "\n";
+    file << "----------------------\n\n";
+}
 
-        file << "Iteration: " << iter
-             << ", Inertia: " << inertia
-             << ", CentroidDelta: " << centroidDelta
-             << ", MinClusterSize: " << minCount
-             << ", MaxClusterSize: " << maxCount << "\n";
-    }
-
-    // after K-means function completes
-    void logSummary(int totalIters, float initialInertia, float finalInertia, int emptyClusterReseeds) {
-        if (!file.is_open()) return;
-
-        file << "\n--- K-Means Summary ---\n";
-        file << "Initial Inertia: " << initialInertia << "\n";
-        file << "Final Inertia:   " << finalInertia << "\n";
-        file << "Iterations:      " << totalIters << "\n";
-        file << "Empty Cluster Reseeds: " << emptyClusterReseeds << "\n";
-        file << "----------------------\n\n";
-    }
-
-private:
-    std::ofstream file;
-};
 
 }

@@ -22,4 +22,5 @@ void generate_centroids();
 void analyze_centroids_full();
 void bucketer_health_check();
 
+class KMeansLogger;
 }
