@@ -1,6 +1,7 @@
 #include "bucketer.hpp"
 #include "eval/evaluator.hpp"
 #include "abstraction.hpp"
+#include "analyze_process.hpp"
 #include <vector>
 #include <algorithm>
 #include <cmath>
@@ -10,6 +11,10 @@
 #include <numeric>
 #include <atomic>
 #include <filesystem>
+#include <stdexcept>
+#include <limits>
+#include <random>
+
 
 // I have to compile omp later because I'm building on macOS
 #ifdef _OPENMP
@@ -131,31 +136,59 @@ std::vector<std::array<float,4>> kmeans(
 ) {
     const size_t n = data.size();
     const size_t dim = 4;
-    std::vector<size_t> assignments(n, 0);
-    std::mt19937 rng(123);
-    std::uniform_int_distribution<size_t> U(0, n - 1);
+    int num_threads = omp_get_max_threads();
 
-    std::vector<std::array<float,4>> centroids(k);
-    
     if (data.empty())
-        throw std::invalid_argument("kmeans: data is empty");
-
+        throw std::invalid_argument("K-means: Data is empty");
     if (k <= 0)
-        throw std::invalid_argument("kmeans: k must be positive");
+        throw std::invalid_argument("K-means: k must be positive");
+    if (k > static_cast<int>(n))
+        throw std::invalid_argument("K-means: k cannot exceed number of points");
 
-    // random init from data
-    for (int i = 0; i < k; ++i)
-        centroids[i] = data[U(rng)];
-    
-    if (k > static_cast<int>(data.size()))
-        throw std::invalid_argument("kmeans: k cannot exceed number of points");
+    std::vector<size_t> assignments(n, 0);
+    std::vector<std::array<float,4>> centroids(k);
+    std::vector<std::array<float,4>> old_centroids(k);
 
-    // temporary storage
     std::vector<std::array<float,4>> sum(k, {0.f,0.f,0.f,0.f});
     std::vector<int> count(k, 0);
 
+    std::mt19937 rng(123);
+    std::uniform_int_distribution<size_t> U(0, n - 1);
+
+    // logger
+    KMeansLogger logger("kmeans_log.txt");
+
+    // random initialization
+    for (int i = 0; i < k; ++i) {
+        centroids[i] = data[U(rng)];
+    }
+
+    old_centroids = centroids; // initialize old centroids
+
+    float initial_inertia = 0.f;
+    float final_inertia = 0.f;
+    int reseed_count = 0;
+    
+    std::vector<std::vector<std::array<double, 4>>> local_sums(num_threads, std::vector<std::array<double, 4>>(k, {0.0, 0.0, 0.0, 0.0}));
+    std::vector<std::vector<int>> local_counts(num_threads, std::vector<int>(k, 0));
+
+    int iterations_completed = 0;
+
     for (int it = 0; it < max_iters; ++it) {
-        #pragma omp parallel for
+        float iter_inertia = 0.f;
+
+        iterations_completed = it + 1;
+        
+        // reset local buffers to prevent carry-over
+        for (int t = 0; t < num_threads; ++t) {
+            for (int i = 0; i < k; ++i) {
+                local_counts[t][i] = 0;
+                local_sums[t][i] = {0.0, 0.0, 0.0, 0.0};
+            }
+        }
+
+        // assign points
+        #pragma omp parallel for reduction(+:iter_inertia)
         for (size_t i = 0; i < n; ++i) {
             float best_dist = std::numeric_limits<float>::max();
             int best_idx = 0;
@@ -173,32 +206,81 @@ std::vector<std::array<float,4>> kmeans(
             }
 
             assignments[i] = best_idx;
+            iter_inertia += best_dist;
         }
 
-        // reset sum and count
+        if (it == 0) initial_inertia = iter_inertia;
+
+        // reset sum & count
         for (int i = 0; i < k; ++i) {
             sum[i] = {0.f,0.f,0.f,0.f};
             count[i] = 0;
         }
 
-        // accumulation for centroid update
-        for (size_t i = 0; i < n; ++i) {
-            size_t cluster = assignments[i];
-            count[cluster]++;
-            for (size_t j = 0; j < dim; ++j)
-                sum[cluster][j] += data[i][j];
+        // accumulate sums for centroid update
+        #pragma omp parallel
+        {
+            int tid = omp_get_thread_num();
+
+            #pragma omp for
+            for (size_t i = 0; i < n; ++i) {
+                size_t cluster = assignments[i];
+                local_counts[tid][cluster]++;
+                for (size_t j = 0; j < dim; ++j) {
+                    local_sums[tid][cluster][j] += static_cast<double>(data[i][j]);
+                }
+            }
+        }
+
+        // merge thread-local data into the main sum/count
+        for (int t = 0; t < num_threads; ++t) {
+            for (int i = 0; i < k; ++i) {
+                count[i] += local_counts[t][i];
+                for (int j = 0; j < dim; ++j) {
+                    sum[i][j] += static_cast<float>(local_sums[t][i][j]);
+                }
+            }
         }
 
         // update centroids
         for (int i = 0; i < k; ++i) {
             if (count[i] == 0) {
                 centroids[i] = data[U(rng)];
+                reseed_count++;
             } else {
                 for (size_t j = 0; j < dim; ++j)
                     centroids[i][j] = sum[i][j] / count[i];
             }
         }
+
+        // compute centroid delta
+        float total_delta = 0.f;
+        for (int i = 0; i < k; ++i) {
+            float dist_sq = 0.f;
+            for (size_t j = 0; j < dim; ++j) {
+                float diff = centroids[i][j] - old_centroids[i][j];
+                dist_sq += diff * diff;
+            }
+            total_delta += std::sqrt(dist_sq); // actual distance moved
+        }
+        
+        float avg_delta = total_delta / k;
+
+        // log iteration
+        logger.logIteration(it, iter_inertia, avg_delta, count);
+
+        // check convergence
+        if (avg_delta < 1e-6f) {
+            final_inertia = iter_inertia;
+            break;
+        }
+
+        old_centroids = centroids; // store for next iteration
+        final_inertia = iter_inertia;
     }
+
+    // final summary log
+    logger.logSummary(iterations_completed, initial_inertia, final_inertia, reseed_count);
 
     return centroids;
 }
