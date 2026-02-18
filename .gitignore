@@ -14,17 +14,25 @@ Icon
 .Trashes
 
 # Xcode
+*.xcodeproj/*
+!*.xcodeproj/project.pbxproj
+!*.xcodeproj/xcshareddata/
+*.xcworkspace/*
+!*.xcworkspace/contents.xcworkspacedata
+DerivedData/
 build/
 build_xcode/
-DerivedData/
 *.xcuserstate
 *.xcuserdata/
 *.xcscmblueprint
-*.xcodeproj/
-
-# Xcode workspace and project user data
-*.xcworkspace/contents.xcworkspacedata
-!default.xcworkspace
+*.xcindex
+*.xcactivitylog
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+*.user
+*.userprefs
 
 # CMake build directories
 build/
@@ -69,25 +77,17 @@ googletest/
 *.bin
 centroids.dat
 
-# Xcode index files and logs
-*.xcindex
-*.xcactivitylog
-
-# Ignore user-specific files
-*.mode1v3
-*.mode2v3
-*.perspectivev3
-*.pbxuser
-*.user
-*.userprefs
-
-# Ignore coverage reports
+# Coverage and Testing
 *.gcda
 *.gcno
 *.gcov
+googletest/
 
 # Ignore CMake generated files
 CMakeLists.txt.user
 
 # Igore source files
 **/centroids.dat
+
+# Ignore output files
+**/output/
