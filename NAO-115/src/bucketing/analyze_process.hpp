@@ -4,7 +4,6 @@
 #include <string>
 #include <fstream>
 
-
 namespace Bucketer {
 
 // distribution

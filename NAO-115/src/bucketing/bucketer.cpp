@@ -10,14 +10,13 @@
 #include <iostream>
 #include <numeric>
 #include <atomic>
-#include <filesystem>
 #include <stdexcept>
 #include <limits>
 #include <random>
 #include <chrono>
 #include <iomanip>
 #include <ctime>
-
+#include <filesystem>
 
 // I have to compile omp later because I'm building on macOS
 #ifdef _OPENMP
@@ -30,13 +29,13 @@ namespace Bucketer {
 
 // CONFIGURATION
 
-const int FLOP_BUCKETS  = 15;
-const int TURN_BUCKETS  = 20;
-const int RIVER_BUCKETS = 50;
+const int FLOP_BUCKETS  = 2000;
+const int TURN_BUCKETS  = 2000;
+const int RIVER_BUCKETS = 1500;
 
-const int SAMPLES_FLOP  = 2000;
-const int SAMPLES_TURN  = 3000;
-const int SAMPLES_RIVER = 5000;
+const int SAMPLES_FLOP  = 200000;
+const int SAMPLES_TURN  = 200000;
+const int SAMPLES_RIVER = 150000;
 
 std::vector<std::array<float,4>> centroids[3];
 std::vector<std::array<float,2>> feature_stats[3];
@@ -51,8 +50,29 @@ int get_thread_id() {
     #endif
 }
 
-// PREFLOP
+// initialize file directory for output files
+void prepare_filesystem() {
+    try {
 
+        std::filesystem::path root_path = std::filesystem::current_path();
+        std::filesystem::path output_path = root_path / "output";
+        std::filesystem::path data_path = output_path / "data";
+        std::filesystem::path logs_path = output_path / "logs";
+
+        if (std::filesystem::create_directories(data_path)) {
+            std::cout << "[Filesystem] Directory added:: " << data_path << std::endl;
+        }
+        
+        if (std::filesystem::create_directories(logs_path)) {
+            std::cout << "[Filesystem] Directory added:: " << logs_path << std::endl;
+        }
+        
+    } catch (const std::filesystem::filesystem_error& e) {
+        std::cerr << "[Filesystem] Error creating directories: " << e.what() << std::endl;
+    }
+}
+
+// PREFLOP
 int get_preflop_bucket(const std::vector<int>& h) {
     int r1 = h[0] / 4, r2 = h[1] / 4;
     int s1 = h[0] % 4, s2 = h[1] % 4;
@@ -73,7 +93,6 @@ int get_preflop_bucket(const std::vector<int>& h) {
 }
 
 // CALCULATE FLOP AND TURN FEATURES
-
 std::vector<float> get_features_dynamic(
     const std::vector<int>& hand,
     const std::vector<int>& board
@@ -186,7 +205,7 @@ std::vector<std::array<float,4>> kmeans(
     std::uniform_int_distribution<size_t> U(0, n - 1);
 
     // logger
-    KMeansLogger logger("kmeans_log.txt");
+    KMeansLogger logger("output/logs/kmeans_log.txt");
 
     // random initialization
     for (int i = 0; i < k; ++i) {
@@ -390,6 +409,7 @@ void drawRiver(std::mt19937& rng, std::uniform_int_distribution<int>& dist,
 
 void generate_centroids() {
     Eval::initialize();
+    DataDistributionLogger distributionLogger("output/logs/data_distribution_report.txt");
     std::cout << "Training bucketer..." << std::endl;
 
     for(int street = 0; street < 3; street++) {
@@ -430,6 +450,8 @@ void generate_centroids() {
             }
         }
         
+        distributionLogger.logDistribution(street, data);
+        
         compute_stats(data, feature_stats[street]);
         apply_z(data, feature_stats[street]);
         
@@ -449,7 +471,7 @@ void generate_centroids() {
         centroids[street] = kmeans(data, k);
     }
 
-    std::ofstream out("centroids.dat", std::ios::binary);
+    std::ofstream out("output/data/centroids.dat", std::ios::binary);
     
     if (!out.is_open()) {
         std::cerr << "Error: Could not open centroids.dat for writing!" << std::endl;
@@ -476,6 +498,8 @@ void generate_centroids() {
         std::cout << "Bucketer training finished." << std::endl;
     }
 }
+
+// runtime
 
 void initialize() {
     if(initialized) {
@@ -508,6 +532,7 @@ void initialize() {
             in.read((char*)centroids[s][i].data(), numFeatures * sizeof(float));
         }
     }
+    
     initialized = true;
 }
 
