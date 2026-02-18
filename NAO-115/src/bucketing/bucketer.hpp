@@ -16,11 +16,14 @@ void compute_stats(const std::vector<std::array<float,4>>& data, std::vector<std
 void apply_z(std::vector<std::array<float,4>>& data, const std::vector<std::array<float,2>>& stats);
 std::vector<std::array<float,4>> kmeans(const std::vector<std::array<float,4>>& data, int k, int max_iters = 100);
 void initialize();
+void prepare_filesystem();
 
 int get_bucket(const std::vector<int>& hand, const std::vector<int>& board);
 void generate_centroids();
 void analyze_centroids_full();
 void bucketer_health_check();
 
+class DataDistributionLogger;
 class KMeansLogger;
 }
+

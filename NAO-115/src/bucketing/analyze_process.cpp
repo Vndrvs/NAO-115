@@ -393,14 +393,14 @@ void DataDistributionLogger::log_distribution(int street, const std::vector<std:
 
 // K-MEANS CONVERGENCE (class: KMeansLogger)
 
-KMeansLogger(const std::string& filename) : file(filename) {}
+KMeansLogger::KMeansLogger(const std::string& filename) : file(filename) {}
 
-~KMeansLogger() {
+KMeansLogger::~KMeansLogger() {
     if (file.is_open()) file.close();
 }
 
 // after each iteration
-void logIteration(int iter, float inertia, float centroidDelta, const std::vector<int>& clusterCounts) {
+void KMeansLogger::logIteration(int iter, float inertia, float centroidDelta, const std::vector<int>& clusterCounts) {
     if (!file.is_open()) return;
     
     int minCount = *std::min_element(clusterCounts.begin(), clusterCounts.end());
@@ -414,7 +414,7 @@ void logIteration(int iter, float inertia, float centroidDelta, const std::vecto
 }
 
 // after K-means function completes
-void logSummary(int totalIters, float initialInertia, float finalInertia, int emptyClusterReseeds) {
+void KMeansLogger::logSummary(int totalIters, float initialInertia, float finalInertia, int emptyClusterReseeds) {
     if (!file.is_open()) return;
     
     file << "\n--- K-Means Summary ---\n";

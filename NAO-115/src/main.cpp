@@ -1,8 +1,8 @@
-// src/main.cpp
-#include <iostream>
+// currently main is responsible for running the bucketer abstraction module
+#include "bucketing/bucketer.hpp"
 
 int main() {
-    std::cout << "hi" << std::endl;
+    Bucketer::prepare_filesystem();
+    Bucketer::generate_centroids();
     return 0;
 }
-
