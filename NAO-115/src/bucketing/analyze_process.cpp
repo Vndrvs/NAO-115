@@ -28,7 +28,6 @@ DataDistributionLogger::~DataDistributionLogger() {
 
 // helpers
 
-
 /*
 using the two-pass algorithm for calculating variance to avoid roundoff errors
 source: Higham, Nicholas J. (2002). "Problem 1.10".
@@ -261,12 +260,21 @@ void DataDistributionLogger::logCorrelationAndPCA(const std::vector<std::array<f
                           const std::vector<double>& stds,
                           const std::vector<std::string>& labels)
 {
+    
     file_ << "1.4 Correlation & PCA\n";
     size_t N = data.size();
     int n = 4;
     
+    // verify label name input correctness
+    if (labels.size() != static_cast<size_t>(n)) {
+        file_ << "Error: label count mismatch\n";
+        return;
+    }
+    
     // compute covariance matrix
     double cov[4][4] = {0};
+    
+    // accumulate sums of products
     for (size_t i = 0; i < N; i++) {
         for (int r = 0; r < n; r++) {
             for (int c = 0; c < n; c++) {
@@ -275,25 +283,39 @@ void DataDistributionLogger::logCorrelationAndPCA(const std::vector<std::array<f
         }
     }
     
-    // finalize covariance and calculate correlation matrix
-    file_ << "Correlation Matrix (Copy to Excel for Heatmap):\n ,";
-    for(auto& l : labels) file_ << l << ",";
-    file_ << "\n";
+    // divide once to finalize covariance matrix
+    for (int r = 0; r < n; r++) {
+        for (int c = 0; c < n; c++) {
+            cov[r][c] /= (N - 1);
+        }
+    }
     
+    // finalize covariance and calculate correlation matrix
+    file_ << "Correlation Matrix (copy-ready heatmap) :\n ,";
+    for (size_t i = 0; i < labels.size(); ++i) {
+        file_ << labels[i];
+        if (i + 1 < labels.size()) file_ << ",";
+    }
+    file_ << "\n";
+
     for (int r = 0; r < n; r++) {
         file_ << labels[r] << ",";
         for (int c = 0; c < n; c++) {
-            cov[r][c] /= (N - 1);
             double corr_val = 0.0;
             if (stds[r] > 1e-9 && stds[c] > 1e-9) {
                 corr_val = cov[r][c] / (stds[r] * stds[c]);
             } else {
                 corr_val = (r == c) ? 1.0 : 0.0;
             }
-            file_ << std::fixed << std::setprecision(4) << corr_val << (c < 3 ? "," : "\n");
+
+            file_ << std::fixed << std::setprecision(4) << corr_val;
+            
+            if(c + 1 < n) {
+                file_ << ",";
+            }
         }
+        file_ << "\n";
     }
-    file_ << "\n";
     
     // 3. PCA using jacobi_pd
     double* evals = new double[n];
@@ -339,6 +361,9 @@ void DataDistributionLogger::logCorrelationAndPCA(const std::vector<std::array<f
     matrix_alloc_jpd::Dealloc2D(&M_input);
     delete[] evals;
     
+    // reset formatting
+    file_.unsetf(std::ios::floatfield);
+    file_.precision(6);
     file_.flush();
 }
 
