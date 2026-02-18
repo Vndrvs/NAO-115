@@ -28,6 +28,13 @@ DataDistributionLogger::~DataDistributionLogger() {
 
 // helpers
 
+
+/*
+using the two-pass algorithm for calculating variance to avoid roundoff errors
+source: Higham, Nicholas J. (2002). "Problem 1.10".
+https://epubs.siam.org/doi/book/10.1137/1.9780898718027
+*/
+
 float DataDistributionLogger::calculateVariance(const std::vector<float>& dataset, float mean) {
     double sumOfSqDifferences = 0.0;
     size_t n = dataset.size();
@@ -37,8 +44,8 @@ float DataDistributionLogger::calculateVariance(const std::vector<float>& datase
         sumOfSqDifferences += difference * difference;
     }
     
-    // Bessel's Correction for sample size (n - 1 division)
     if (n > 1) {
+        // Bessel's Correction for sample size (n - 1 division)
         return static_cast<float>(sumOfSqDifferences / (n - 1));
     } else {
         return 0.0f;
@@ -75,11 +82,9 @@ std::pair<float, float> DataDistributionLogger::calculateMeanVariance(const std:
     }
     
     double sum = 0;
-    double sum_squared = 0;
     
     for (float value : inputVector) {
         sum += value;
-        sum_squared += value * value;
     }
     
     float mean = sum / inputVector.size();

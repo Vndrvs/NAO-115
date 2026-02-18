@@ -100,7 +100,6 @@ std::vector<float> get_features_dynamic(
 }
 
 // NORMALIZATION
-
 void compute_stats(const std::vector<std::array<float,4>>& data,
                    std::vector<std::array<float,2>>& stats)
 {
@@ -110,32 +109,45 @@ void compute_stats(const std::vector<std::array<float,4>>& data,
     stats.assign(dim, {0.f, 0.f});
 
     // compute means
-    for (const auto& point : data)
-        for (size_t i = 0; i < dim; ++i)
+    for (const auto& point : data) {
+        for (size_t i = 0; i < dim; ++i) {
             stats[i][0] += point[i];
-
-    for (size_t i = 0; i < dim; ++i)
+        }
+    }
+        
+    for (size_t i = 0; i < dim; ++i) {
         stats[i][0] /= static_cast<float>(n);
+    }
 
     // compute standard deviation
-    for (const auto& point : data)
+    for (const auto& point : data) {
         for (size_t i = 0; i < dim; ++i) {
             float diff = point[i] - stats[i][0];
             stats[i][1] += diff * diff;
         }
-
-    for (size_t i = 0; i < dim; ++i)
+    }
+    
+    for (size_t i = 0; i < dim; ++i) {
+        // population standard deviation (used for normalization)
         stats[i][1] = std::sqrt(stats[i][1] / static_cast<float>(n));
+    }
+    
 }
+
+/*
+ Z-score normalization using population statistics
+ to standardize features for k-means algorithm
+ */
 
 void apply_z(std::vector<std::array<float,4>>& data,
              const std::vector<std::array<float,2>>& stats)
 {
     const size_t dim = 4;
 
-    for (auto& point : data) {
+    for (std::array<float,4>& point : data) {
         for (size_t i = 0; i < dim; ++i) {
             if (stats[i][1] > 1e-9f) {
+                // works on means and stdev of each feature
                 point[i] = (point[i] - stats[i][0]) / stats[i][1];
             }
         }
@@ -227,7 +239,9 @@ std::vector<std::array<float,4>> kmeans(
             iter_inertia += best_dist;
         }
 
-        if (it == 0) initial_inertia = iter_inertia;
+        if (it == 0) {
+            initial_inertia = iter_inertia;
+        }
 
         // reset sum & count
         for (int i = 0; i < k; ++i) {
