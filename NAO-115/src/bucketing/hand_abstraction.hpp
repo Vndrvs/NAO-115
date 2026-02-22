@@ -13,8 +13,7 @@ Feature vectors for abstraction using values:
 
 struct FlopFeatures {
     float hs;
-    float ppot;
-    float npot;
+    float asymmetry;
     float volatility;
     float eVsTop;
 };

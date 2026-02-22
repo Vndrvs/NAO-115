@@ -82,10 +82,10 @@ inline int computeTopRangeCutoff(
 
     // accumulate scores from weakest to strongest
     int accumulatedCombos = 0;
-    for (int score = 0; score < MAX_EVAL_SCORE; ++score) {
+    for (int score = MAX_EVAL_SCORE - 1; score >= 0; --score) {
         accumulatedCombos += scoreHistogram[score];
 
-        // we've included enough combos, this score is the cutoff
+        // we've found the top 15% of hands
         if (accumulatedCombos >= outTopComboCount) {
             return score;
         }
@@ -133,6 +133,23 @@ inline void precomputeHero7(
     }
 }
 
+// compute asymmetry of Ppot and Npot variables
+inline float computeAsymmetry(float handStrength, float Ppot, float Npot) {
+    float upside   = (1.0f - handStrength) * Ppot;
+    float downside = handStrength * Npot;
+
+    return (upside - downside) / (upside + downside + 1e-6f);
+}
+
+// compute effective hand strength
+inline float computeEHS(float handStrength, float Ppot, float Npot) {
+    float winNow = handStrength;
+    float improve = (1.f - handStrength) * Ppot;
+    float deteriorate = handStrength * Npot;
+
+    return winNow + improve - deteriorate;
+}
+
 FlopFeatures calculateFlopTransitionsTwoAhead(
     const std::array<int, 2>& hand,
     const std::array<int, 3>& board)
@@ -142,6 +159,7 @@ FlopFeatures calculateFlopTransitionsTwoAhead(
     auto context = createContext(hand, board);
 
     int topCount;
+    int actualTopHandCount = 0;
     int cutoff = computeTopRangeCutoff(
         context.deckMask, context.b0, context.b1, context.b2,
         0.15f, topCount);
@@ -188,6 +206,9 @@ FlopFeatures calculateFlopTransitionsTwoAhead(
             // evaluate 5-card villain score with the given cards
             int villainScore = eval_5(context.b0, context.b1, context.b2, villainCard1, villainCard2);
             bool isTopRange = (villainScore >= cutoff);
+            if (isTopRange) {
+                actualTopHandCount++;
+            }
 
             int flopState;
             // set flop starting state and count comparison results
@@ -297,12 +318,16 @@ FlopFeatures calculateFlopTransitionsTwoAhead(
 
     float volatility = sqrtf(variance);
     
+    // compute performance against top villain hands
     float eVsTop = 0.f;
-    if (topCount > 0) {
-        eVsTop = (topWins + 0.5f * topTies) / (topCount * 990.f);
+    if (actualTopHandCount > 0) {
+        eVsTop = (topWins + 0.5f * topTies) / (actualTopHandCount * 990.f);
     }
+    
+    float EHS = computeEHS(handStrength, Ppot, Npot);
+    float asymmetry = computeAsymmetry(handStrength, Ppot, Npot);
 
-    return FlopFeatures{ handStrength, Ppot, Npot, volatility, eVsTop };
+    return FlopFeatures{ handStrength, asymmetry, volatility, eVsTop };
 }
 
 // function to calculate strength variables for turn
