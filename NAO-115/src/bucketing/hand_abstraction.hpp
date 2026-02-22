@@ -16,6 +16,7 @@ struct FlopFeatures {
     float ppot;
     float npot;
     float volatility;
+    float eVsTop;
 };
 
 struct TurnFeatures {
