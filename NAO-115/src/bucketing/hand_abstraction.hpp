@@ -3,14 +3,22 @@
 namespace Eval {
 
 /**
- * 4-float feature vector for flop abstraction using values:
- * E: Expected Hand Strength
- * E2: Hand Strength Square
- * PPot: Positive Potential
- * NPot: Negative Potential
+Feature vectors for abstraction using values:
+- HS: Expected Hand Strength
+- PPot: Positive Potential
+- NPot: Negative Potential
+- Volatility:
+- Exclusivity:
  */
 
-struct StrengthTransitions {
+struct FlopFeatures {
+    float hs;
+    float ppot;
+    float npot;
+    float volatility;
+};
+
+struct TurnFeatures {
     float hs;
     float ppot;
     float npot;

@@ -221,14 +221,15 @@ BaseFeatures calculateFlopFeaturesTwoAhead(const std::array<int, 2>& hand, const
 
     float Ppot = 0.f;
     float Npot = 0.f;
+    const float remainingRiverCards = 44.0f;
 
-    // compute potentials if denominators are non-zero
+    // compute potentials if denominators are non-zero and normalize for the number of remaining cards
     if (PpotDenominator > 0.f) {
-        Ppot = (HP[2][0] + HP[2][1]/2.f + HP[1][0]/2.f) / PpotDenominator;
+        Ppot = (HP[2][0] + HP[2][1]/2.f + HP[1][0]/2.f) / (PpotDenominator * remainingRiverCards);
     }
 
     if (NpotDenominator > 0.f) {
-        Npot = (HP[0][2] + HP[0][1]/2.f + HP[1][2]/2.f) / NpotDenominator;
+        Npot = (HP[0][2] + HP[0][1]/2.f + HP[1][2]/2.f) / (NpotDenominator * remainingRiverCards);
     }
 
     return BaseFeatures{ handStrength, handStrength * handStrength, Ppot, Npot };
@@ -347,7 +348,7 @@ BaseFeatures calculateFlopFeaturesFast(const std::array<int, 2>& hand,
     float Npot = 0.f;
     const float remainingTurnCards = 45.0f;
 
-    // compute potentials if denominators are non-zero
+    // compute potentials if denominators are non-zero and normalize for the number of remaining cards
     if (PpotDenominator > 0.f) {
         Ppot = (HP[2][0] + HP[2][1]/2.f + HP[1][0]/2.f) / (PpotDenominator * remainingTurnCards);
     }
