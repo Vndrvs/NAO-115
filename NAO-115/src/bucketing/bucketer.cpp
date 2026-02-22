@@ -17,6 +17,7 @@
 #include <iomanip>
 #include <ctime>
 #include <filesystem>
+#include <sstream>
 
 // I have to compile omp later because I'm building on macOS
 #ifdef _OPENMP
@@ -29,13 +30,13 @@ namespace Bucketer {
 
 // CONFIGURATION
 
-const int FLOP_BUCKETS  = 2000;
+const int FLOP_BUCKETS  = 800;
 const int TURN_BUCKETS  = 2000;
-const int RIVER_BUCKETS = 1500;
+const int RIVER_BUCKETS = 500;
 
-const int SAMPLES_FLOP  = 200000;
-const int SAMPLES_TURN  = 200000;
-const int SAMPLES_RIVER = 150000;
+const int SAMPLES_FLOP  = 1000000;
+const int SAMPLES_TURN  = 1000000;
+const int SAMPLES_RIVER = 1000000;
 
 std::vector<std::array<float,4>> centroids[3];
 std::vector<std::array<float,2>> feature_stats[3];
@@ -70,6 +71,16 @@ void prepare_filesystem() {
     } catch (const std::filesystem::filesystem_error& e) {
         std::cerr << "[Filesystem] Error creating directories: " << e.what() << std::endl;
     }
+}
+
+// file timestamp helper
+std::string get_timestamp_suffix() {
+    auto now = std::time(nullptr);
+    auto tm = *std::localtime(&now);
+    
+    std::ostringstream oss;
+    oss << std::put_time(&tm, "_%Y-%m-%d_%H-%M");
+    return oss.str();
 }
 
 // PREFLOP
@@ -178,6 +189,7 @@ void apply_z(std::vector<std::array<float,4>>& data,
 std::vector<std::array<float,4>> kmeans(
     const std::vector<std::array<float,4>>& data,
     int k,
+    const std::string& logFilename,
     int max_iters
 ) {
     const size_t n = data.size();
@@ -205,7 +217,7 @@ std::vector<std::array<float,4>> kmeans(
     std::uniform_int_distribution<size_t> U(0, n - 1);
 
     // logger
-    KMeansLogger logger("output/logs/kmeans_log.txt");
+    KMeansLogger logger(logFilename);
 
     // random initialization
     for (int i = 0; i < k; ++i) {
@@ -319,6 +331,11 @@ std::vector<std::array<float,4>> kmeans(
 
         // log iteration
         logger.logIteration(it, iter_inertia, avg_delta, count);
+        
+        std::cout << "  > Iteration " << std::setw(2) << it+1
+                      << " | Delta: " << std::fixed << std::setprecision(6) << avg_delta
+                      << " | Inertia: " << std::setprecision(1) << iter_inertia
+                      << "\r" << std::flush;
 
         // check convergence
         if (avg_delta < 1e-6f) {
@@ -329,6 +346,7 @@ std::vector<std::array<float,4>> kmeans(
         old_centroids = centroids; // store for next iteration
         final_inertia = iter_inertia;
     }
+    std::cout << std::endl;
 
     // final summary log
     logger.logSummary(iterations_completed, initial_inertia, final_inertia, reseed_count);
@@ -409,10 +427,21 @@ void drawRiver(std::mt19937& rng, std::uniform_int_distribution<int>& dist,
 
 void generate_centroids() {
     Eval::initialize();
-    DataDistributionLogger distributionLogger("output/logs/data_distribution_report.txt");
     std::cout << "Training bucketer..." << std::endl;
+    
+    // file naming logic
+    std::string suffix = get_timestamp_suffix();
+    std::string distLogName = "output/logs/data_distribution" + suffix + ".txt";
+    std::string kmeansLogName = "output/logs/kmeans_log" + suffix + ".txt";
+    std::string datFileName   = "output/data/centroids" + suffix + ".dat";
 
+    DataDistributionLogger distributionLogger(distLogName);
+    
     for(int street = 0; street < 3; street++) {
+        
+        std::string streetName = (street == 0 ? "FLOP" : (street == 1 ? "TURN" : "RIVER"));
+                std::cout << " STARTING " << streetName << " (Street " << street << ")" << std::endl;
+        
         int N;
         if (street == 0) {
             N = SAMPLES_FLOP;
@@ -423,6 +452,8 @@ void generate_centroids() {
         }
         
         std::vector<std::array<float, 4>> data(N);
+        
+        std::cout << "[1/4] Generating " << N << " samples..." << std::flush;
         
         #pragma omp parallel
         {
@@ -449,11 +480,14 @@ void generate_centroids() {
                 }
             }
         }
-        
+        std::cout << "[2/4] Logging Distribution..." << std::flush;
         distributionLogger.logDistribution(street, data);
+        std::cout << " Done." << std::endl;
         
+        std::cout << "[3/4] Normalizing Features..." << std::flush;
         compute_stats(data, feature_stats[street]);
         apply_z(data, feature_stats[street]);
+        std::cout << " Done." << std::endl;
         
         int k;
         if (street == 0) {
@@ -468,13 +502,15 @@ void generate_centroids() {
             k = N;
         }
         
-        centroids[street] = kmeans(data, k);
+        std::cout << "[4/4] Running K-Means (k=" << k << ")..." << std::endl;
+        centroids[street] = kmeans(data, k, kmeansLogName);
+        std::cout << ">>> Street " << street << " Complete." << std::endl;
     }
 
-    std::ofstream out("output/data/centroids.dat", std::ios::binary);
+    std::ofstream out(datFileName, std::ios::binary);
     
     if (!out.is_open()) {
-        std::cerr << "Error: Could not open centroids.dat for writing!" << std::endl;
+        std::cerr << "Error: Could not open " << datFileName << " for writing!" << std::endl;
     } else {
         for(int street = 0; street < 3; street++){
             int numCentroids = static_cast<int>(centroids[street].size());
@@ -495,7 +531,7 @@ void generate_centroids() {
             }
         }
         out.close();
-        std::cout << "Bucketer training finished." << std::endl;
+        std::cout << "Bucketer training finished. Saved to: " << datFileName << std::endl;
     }
 }
 

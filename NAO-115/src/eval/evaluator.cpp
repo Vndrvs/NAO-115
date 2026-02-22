@@ -67,7 +67,7 @@ inline int find_fast(unsigned u) {
 // 3. Hand doesn't belong to the first 2 buckets - so has a pair, two pairs, three of a kind, quads, or full house
 
 
-inline int eval_5(int c1, int c2, int c3, int c4, int c5) {
+int eval_5(int c1, int c2, int c3, int c4, int c5) {
     int q = (c1 | c2 | c3 | c4 | c5) >> 16;
     short s;
 

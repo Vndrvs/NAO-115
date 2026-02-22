@@ -137,7 +137,7 @@ void DataDistributionLogger::logMoments(const std::vector<std::vector<float>>& f
             kurtosis = (m4 / (variance * variance)) - 3.0;
         }
         
-        file_ << "F" << f << ", " << means[f] << ", " << stds[f] << ", " << skew << ", " << kurtosis << "\n";
+        file_ << "F" << f << ", " << means[f] << ", " << stds[f] << ", " << skew << ", " << kurtosis << "\n\n";
     }
 }
 
@@ -148,7 +148,7 @@ void DataDistributionLogger::logOutliers(const std::vector<std::vector<float>>& 
 {
     if (!file_.is_open()) return;
     
-    file_ << ">>> 1.2 Extreme Values & Histograms (Statistical Analysis) <<<\n";
+    file_ << "1.2 Extreme Values & Histograms (Statistical Analysis)\n";
     
     size_t N = features[0].size();
     
@@ -355,6 +355,7 @@ void DataDistributionLogger::logCorrelationAndPCA(const std::vector<std::array<f
     } else {
         file_ << "Error: PCA failed to converge.\n";
     }
+    file_ << "\n";
     
     // cleanup using library helpers
     matrix_alloc_jpd::Dealloc2D(&evecs);
@@ -367,7 +368,7 @@ void DataDistributionLogger::logCorrelationAndPCA(const std::vector<std::array<f
     file_.flush();
 }
 
-void DataDistributionLogger::log_distribution(int street, const std::vector<std::array<float, 4>>& data) {
+void DataDistributionLogger::logDistribution(int street, const std::vector<std::array<float, 4>>& data) {
     if (!file_.is_open()) return;
     
     file_ << ">>> Data Distribution: Street " << street << " <<<\n";
@@ -383,6 +384,7 @@ void DataDistributionLogger::log_distribution(int street, const std::vector<std:
     std::vector<double> shared_means;
     std::vector<double> shared_stds;
     std::vector<std::string> labels = {"Equity", "EqSquared", "PPot", "NPot"};
+    std::vector<std::string> riverLabels = {"Strength", "Polarization", "BluffDominance", "Linearity"};
     
     // run loggers
     logMoments(features, shared_means, shared_stds);
@@ -393,7 +395,8 @@ void DataDistributionLogger::log_distribution(int street, const std::vector<std:
 
 // K-MEANS CONVERGENCE (class: KMeansLogger)
 
-KMeansLogger::KMeansLogger(const std::string& filename) : file(filename) {}
+KMeansLogger::KMeansLogger(const std::string& filename)
+: file(filename, std::ios::app) {}
 
 KMeansLogger::~KMeansLogger() {
     if (file.is_open()) file.close();

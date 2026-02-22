@@ -118,6 +118,7 @@ float calculateTurnHandStrength(const std::array<int, 2>& hand,
 }
 
 // function to calculate Ppot2 and Npot2
+// not used in practice
 BaseFeatures calculateFlopFeaturesTwoAhead(const std::array<int, 2>& hand, const std::array<int, 3>& board) {
     
     // 64bit bitmask to mark used cards inside the deck
@@ -555,12 +556,15 @@ RiverFeatures calculateRiverFeatures(const std::array<int, 2>& hand,
     int topStart = int(0.8 * totalVillainCombos);
     int topEnd = totalVillainCombos;
             
-    float eVsRandom = eq(0, totalVillainCombos);
+    float eVsUniform = eq(0, totalVillainCombos);
     float eVsTop = eq(topStart, topEnd);
     float eVsMid = eq(midStart, midEnd);
     float eVsBot = eq(botStart, botEnd);
+    float vsStrongDelta = eVsTop - eVsRandom;
+    float vsWeakDelta = eVsBot - eVsRandom;
+    float midCurvature = eVsMid - (eVsTop + eVsBot) / 2;
     
-    return RiverFeatures { eVsRandom, eVsTop, eVsMid, eVsBot };
+    return RiverFeatures { eVsUniform, vsStrongDelta, vsWeakDelta, midCurvature };
 }
 
 }
