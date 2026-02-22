@@ -274,13 +274,18 @@ FlopFeatures calculateFlopTransitionsTwoAhead(
     // compute 2-card flop volatility
     std::vector<float> hsTR;
     hsTR.reserve(52*52);
-    for (int t = 0; t < 52; t++)
-        for (int r = 0; r < 52; r++)
-            if (hsTotal[t][r] > 0)
+    for (int t = 0; t < 52; t++) {
+        for (int r = 0; r < 52; r++) {
+            if (hsTotal[t][r] > 0) {
                 hsTR.push_back((hsWin[t][r] + 0.5f * hsTie[t][r]) / hsTotal[t][r]);
+            }
+        }
+    }
 
     float mean = 0.f;
-    for (float v : hsTR) mean += v;
+    for (float v : hsTR) {
+        mean += v;
+    }
     mean /= hsTR.size();
 
     float variance = 0.f;
