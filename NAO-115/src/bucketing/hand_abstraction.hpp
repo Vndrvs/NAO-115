@@ -25,10 +25,10 @@ struct TurnFeatures {
 };
 
 struct RiverFeatures {
-    float eVsRandom;
-    float eVsTop;
-    float eVsMid;
-    float eVsBot;
+    float equityTotal;
+    float equityTop;
+    float equityMid;
+    float blockerIndex;
 };
 
 FlopFeatures calculateFlopFeaturesTwoAhead(const std::array<int, 2>& hand,
@@ -36,5 +36,8 @@ FlopFeatures calculateFlopFeaturesTwoAhead(const std::array<int, 2>& hand,
 
 TurnFeatures calculateTurnFeatures(const std::array<int, 2>& hand,
                                        const std::array<int, 4>& board);
+
+RiverFeatures calculateRiverFeatures(const std::array<int, 2>& hand,
+                                       const std::array<int, 5>& board);
 
 }
