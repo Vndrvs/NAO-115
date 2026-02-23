@@ -3,9 +3,17 @@
 
 namespace Eval {
 
-struct EvalContext {
+struct FlopContext {
     uint64_t deckMask;
-    int h0, h1, b0, b1, b2;
+    int h0, h1;
+    int b0, b1, b2;
+    int selfRank;
+};
+
+struct TurnContext {
+    uint64_t deckMask;
+    int h0, h1;
+    int b0, b1, b2, b3;
     int selfRank;
 };
 
@@ -16,6 +24,41 @@ enum HandState : int {
 };
 
 // helper to build the bitmask neccessary for flop and turn computations
+inline uint64_t buildDeckMask(const std::initializer_list<int>& usedCards)
+{
+    uint64_t used = 0;
+    for (int c : usedCards)
+        used |= 1ULL << c;
+
+    return (~used) & ((1ULL << 52) - 1);
+}
+
+inline FlopContext createFlopContext(
+    const std::array<int,2>& hand,
+    const std::array<int,3>& board)
+{
+    uint64_t deckMask = buildDeckMask({ hand[0], hand[1], board[0], board[1], board[2] });
+
+    return {
+        deckMask,
+        deck[hand[0]], deck[hand[1]], deck[board[0]], deck[board[1]], deck[board[2]],
+        eval_5(deck[hand[0]], deck[hand[1]], deck[board[0]], deck[board[1]], deck[board[2]])
+    };
+}
+
+inline TurnContext createTurnContext(
+    const std::array<int,2>& hand,
+    const std::array<int,4>& board)
+{
+    uint64_t deckMask = buildDeckMask({ hand[0], hand[1], board[0], board[1], board[2], board[3] });
+
+    return {
+        deckMask,
+        deck[hand[0]], deck[hand[1]], deck[board[0]], deck[board[1]], deck[board[2]], deck[board[3]],
+        eval_6(deck[hand[0]], deck[hand[1]], deck[board[0]], deck[board[1]], deck[board[2]], deck[board[3]])
+    };
+}
+
 inline EvalContext createContext(
     const std::array<int,2>& hand,
     const std::array<int,3>& board)
@@ -37,62 +80,75 @@ inline EvalContext createContext(
 }
 
 // helper to run histogram logic involved in top range feature calculation
+template <typename EvalFn>
 inline int computeTopRangeCutoff(
-    uint64_t availableDeckMask,   // bitmask of unused cards
-    int boardCard0,
-    int boardCard1,
-    int boardCard2,
-    float topPercentage,          // size of range
-    int& outTopComboCount)        // number of villain combos considered top
+    uint64_t availableDeckMask,
+    float topPercentage,
+    int& outTopComboCount,
+    EvalFn evalVillain)
 {
     constexpr int MAX_EVAL_SCORE = 7463;
-
-    // histogram: how many villain combos achieve each 5-card score
     int scoreHistogram[MAX_EVAL_SCORE] = {};
-
     int totalVillainCombos = 0;
 
-    // enumerate all unordered villain hole card combinations
-    uint64_t firstCardMask = availableDeckMask;
-    
-    while (firstCardMask) {
-        int firstIndex = __builtin_ctzll(firstCardMask);
-        firstCardMask &= (firstCardMask - 1);
+    uint64_t firstMask = availableDeckMask;
+    while (firstMask) {
+        int i = __builtin_ctzll(firstMask);
+        firstMask &= firstMask - 1;
 
-        uint64_t secondCardMask = firstCardMask;
-        while (secondCardMask) {
-            int secondIndex = __builtin_ctzll(secondCardMask);
-            secondCardMask &= (secondCardMask - 1);
+        uint64_t secondMask = firstMask;
+        while (secondMask) {
+            int j = __builtin_ctzll(secondMask);
+            secondMask &= secondMask - 1;
 
-            int villainScore = eval_5(
-                boardCard0,
-                boardCard1,
-                boardCard2,
-                deck[firstIndex],
-                deck[secondIndex]
-            );
-
-            scoreHistogram[villainScore]++;
+            int score = evalVillain(i, j);
+            scoreHistogram[score]++;
             totalVillainCombos++;
         }
     }
 
-    // how many combos constitute the top 'x' percent of villain hands
     outTopComboCount = int(totalVillainCombos * topPercentage + 0.5f);
 
-    // accumulate scores from weakest to strongest
-    int accumulatedCombos = 0;
-    for (int score = MAX_EVAL_SCORE - 1; score >= 0; --score) {
-        accumulatedCombos += scoreHistogram[score];
-
-        // we've found the top 15% of hands
-        if (accumulatedCombos >= outTopComboCount) {
-            return score;
-        }
+    int accumulated = 0;
+    for (int s = MAX_EVAL_SCORE - 1; s >= 0; --s) {
+        accumulated += scoreHistogram[s];
+        if (accumulated >= outTopComboCount)
+            return s;
     }
 
-    // safety fallback
     return MAX_EVAL_SCORE - 1;
+}
+
+inline int computeTopRangeCutoffFlop(
+    uint64_t deckMask,
+    int b0, int b1, int b2,
+    float topPct,
+    int& outTopCount)
+{
+    return computeTopRangeCutoff(
+        deckMask,
+        topPct,
+        outTopCount,
+        [&](int i, int j) {
+            return eval_5(b0, b1, b2, deck[i], deck[j]);
+        }
+    );
+}
+
+inline int computeTopRangeCutoffTurn(
+    uint64_t deckMask,
+    int b0, int b1, int b2, int b3,
+    float topPct,
+    int& outTopCount)
+{
+    return computeTopRangeCutoff(
+        deckMask,
+        topPct,
+        outTopCount,
+        [&](int i, int j) {
+            return eval_6(b0, b1, b2, b3, deck[i], deck[j]);
+        }
+    );
 }
 
 inline void precomputeHero7(
@@ -156,11 +212,12 @@ FlopFeatures calculateFlopTransitionsTwoAhead(
 {
     
     // call environment initializer helper
-    auto context = createContext(hand, board);
+    auto context = createFlopContext(hand, board);
 
+    // variables for EquityUnderPressure feature
     int topCount;
     int actualTopHandCount = 0;
-    int cutoff = computeTopRangeCutoff(
+    int cutoff = computeTopRangeCutoffFlop(
         context.deckMask, context.b0, context.b1, context.b2,
         0.15f, topCount);
     float topWins = 0.f;
@@ -176,9 +233,9 @@ FlopFeatures calculateFlopTransitionsTwoAhead(
     );
     
     // initializing counters for EHS calculation
-    float betterThan = 0.f;
-    float worseThan = 0.f;
-    float equal = 0.f;
+    float betterThan = 0.f; // opponent hand is weaker
+    float worseThan = 0.f; // opponent hand is stronger
+    float equal = 0.f; // tie
 
     // initializing 1d 2d hand potential arrays for EHS calculation
     float HP[3][3] = {};
@@ -291,6 +348,10 @@ FlopFeatures calculateFlopTransitionsTwoAhead(
     if (NpotDenominator > 0.f) {
         Npot = (HP[0][2] + HP[0][1]/2.f + HP[1][2]/2.f) / (NpotDenominator * remainingCombinations);
     }
+    
+    // compute EHS and asymmetry from HS, Ppot and Npot
+    float EHS = computeEHS(handStrength, Ppot, Npot);
+    float asymmetry = computeAsymmetry(handStrength, Ppot, Npot);
 
     // compute 2-card flop volatility
     std::vector<float> hsTR;
@@ -319,98 +380,90 @@ FlopFeatures calculateFlopTransitionsTwoAhead(
     float volatility = sqrtf(variance);
     
     // compute performance against top villain hands
-    float eVsTop = 0.f;
+    float equityUnderPressure = 0.f;
     if (actualTopHandCount > 0) {
-        eVsTop = (topWins + 0.5f * topTies) / (actualTopHandCount * 990.f);
+        equityUnderPressure = (topWins + 0.5f * topTies) / (actualTopHandCount * 990.f);
     }
-    
-    float EHS = computeEHS(handStrength, Ppot, Npot);
-    float asymmetry = computeAsymmetry(handStrength, Ppot, Npot);
 
-    return FlopFeatures{ handStrength, asymmetry, volatility, eVsTop };
+    return FlopFeatures{ handStrength, asymmetry, volatility, equityUnderPressure };
 }
 
 // function to calculate strength variables for turn
-TurnFeatures calculateTurnStrengthTransitions(const std::array<int, 2>& hand,
+TurnFeatures calculateTurnFeatures(const std::array<int, 2>& hand,
                            const std::array<int, 4>& board) {
     
-    uint64_t usedCards = 0;
-
-    usedCards |= (1ULL << hand[0]);
-    usedCards |= (1ULL << hand[1]);
-    usedCards |= (1ULL << board[0]);
-    usedCards |= (1ULL << board[1]);
-    usedCards |= (1ULL << board[2]);
-    usedCards |= (1ULL << board[3]);
-        
-    uint64_t mask = (~usedCards) & ((uint64_t(1) << 52) - 1);
+    // call environment initializer helper
+    auto context = createTurnContext(hand, board);
     
-    // get the encoded card formats for evaluation
-    int h0 = deck[hand[0]];
-    int h1 = deck[hand[1]];
-    int b0 = deck[board[0]];
-    int b1 = deck[board[1]];
-    int b2 = deck[board[2]];
-    int b3 = deck[board[3]];
-    
-    int selfRank = eval_6(h0, h1, b0, b1, b2, b3);
+    // variables for EquityUnderPressure feature
+    int topCount;
+    int actualTopHandCount = 0;
+    int cutoff = computeTopRangeCutoffTurn(
+        context.deckMask, context.b0, context.b1, context.b2, context.b3,
+        0.15f, topCount);
+    float topWins = 0.f;
+    float topTies = 0.f;
     
     int heroRiverEvals[52] = {};
-    uint64_t preCalcMask = mask;
+    uint64_t preRiverMask = context.deckMask;
     
-    // we pre-calculate the hand strength against all-turns
-    while(preCalcMask) {
-        int cardIndex = __builtin_ctzll(preCalcMask);
-        preCalcMask &= (preCalcMask - 1);
-        heroRiverEvals[cardIndex] = eval_7(h0, h1, b0, b1, b2, b3, deck[cardIndex]);
+    // we pre-calculate the hand strength against all river card options
+    while(preRiverMask) {
+        int cardIndex = __builtin_ctzll(preRiverMask);
+        preRiverMask &= (preRiverMask - 1);
+        heroRiverEvals[cardIndex] = eval_7(context.h0, context.h1, context.b0, context.b1, context.b2, context.b3, deck[cardIndex]);
     }
     
-    int betterThan = 0; // opponent hand is weaker
-    int worseThan = 0; // opponent hand is stronger
-    int equal = 0; // opponent hand is equal
+    float betterThan = 0.f;
+    float worseThan = 0.f;
+    float equal = 0.f;
     
-    int HP[3][3] = {}; // [turnState][finalState]
-    int handPotentialTotal[3] = {};
+    float HP[3][3] = {};
+    float handPotentialTotal[3] = {};
     
     // volatility accumulators (HS on river)
     int hsWin[52] = {};
     int hsTie[52] = {};
     int hsTotal[52] = {};
     
-    // HS calculation
-    while (mask) {
-        int villainIndex1 = __builtin_ctzll(mask);
+    uint64_t villainMask = context.deckMask;
+    
+    while (villainMask) {
+        int villainIndex1 = __builtin_ctzll(villainMask);
         int villainCard1 = deck[villainIndex1];
-        mask &= (mask - 1);
+        villainMask &= (villainMask - 1);
         
-        uint64_t mask2 = mask;
-        while(mask2) {
-            int villainIndex2 = __builtin_ctzll(mask2);
+        uint64_t villainMask2 = villainMask;
+        while(villainMask2) {
+            int villainIndex2 = __builtin_ctzll(vilainMask2);
             int villainCard2 = deck[villainIndex2];
-            mask2 &= (mask2 - 1);
+            villainMask2 &= (villainMask2 - 1);
             
-            int villainScore = eval_6(b0, b1, b2, b3, villainCard1, villainCard2); // evaluate opponent on turn
+            int villainScore = eval_6(context.b0, context.b1, context.b2, context.b3, villainCard1, villainCard2); // evaluate opponent on turn
+            bool isTopRange = (villainScore >= cutoff);
+            if (isTopRange) {
+                actualTopHandCount++;
+            }
             
             int turnState;
             
-            if(selfRank < villainScore) {
-                worseThan ++;
+            if(context.selfRank < villainScore) {
+                worseThan += 1.f;
                 turnState = BEHIND;
-            } else if(selfRank > villainScore) {
-                betterThan ++;
+            } else if(context.selfRank > villainScore) {
+                betterThan += 1.f;
                 turnState = AHEAD;
             } else {
-                equal ++;
+                equal += 1.f;
                 turnState = TIED;
             }
             
-            handPotentialTotal[turnState]++;
+            handPotentialTotal[turnState] += 1.f;
             
-            // EHS calculation
-            
-            uint64_t riverMask = (~usedCards) & ((1ULL << 52) - 1); // init mask of available cards to draw river from
+            uint64_t riverMask = context.deckMask;
             riverMask &= ~(1ULL << villainIndex1);
-            riverMask &= ~(1ULL << villainIndex2); // remove both villain cards
+            riverMask &= ~(1ULL << villainIndex2);
+            
             
             while(riverMask) {
                 int riverCardIndex = __builtin_ctzll(riverMask); // draw river card
@@ -418,27 +471,58 @@ TurnFeatures calculateTurnStrengthTransitions(const std::array<int, 2>& hand,
                 riverMask &= (riverMask - 1); // remove used turn card from mask
                 
                 int selfBest = heroRiverEvals[riverCardIndex];
-                int villainBest = eval_7(villainCard1, villainCard2, b0, b1, b2, b3, riverCard); // calculate opponent score
+                int villainBest = eval_7(villainCard1, villainCard2, context.b0, context.b1, context.b2, context.b3, riverCard); // calculate opponent score
+                
+                if (isTopRange) {
+                    if (selfBest > villainBest) {
+                        topWins += 1.f;
+                    } else if (selfBest == villainBest) {
+                        topTies += 1.f;
+                    }
+                }
                 
                 int finalState;
                 
                 if(selfBest < villainBest) {
-                    finalState = 2;
+                    finalState = BEHIND;
                 } else if(selfBest > villainBest) {
                     hsWin[riverCardIndex]++;
-                    finalState = 0;
+                    finalState = AHEAD;
                 } else {
                     hsTie[riverCardIndex]++;
-                    finalState = 1;
+                    finalState = TIED;
                 }
                 
                 hsTotal[riverCardIndex]++;
-                HP[turnState][finalState] ++;
+                HP[turnState][finalState] += 1.f;
             }
         }
     }
     
-    // compute HS per turn
+    // hand strength computation
+    float handStrength = (betterThan + 0.5f * equal) / (betterThan + worseThan + equal);
+    
+    float PpotDenominator = handPotentialTotal[2] + handPotentialTotal[1];
+    float NpotDenominator = handPotentialTotal[0] + handPotentialTotal[1];
+
+    float Ppot = 0.f;
+    float Npot = 0.f;
+    const float remainingRiverCards = 44.0f;
+
+    // compute potentials if denominators are non-zero
+    if (PpotDenominator > 0.f) {
+        Ppot = (HP[2][0] + HP[2][1]/2.f + HP[1][0]/2.f) / (PpotDenominator * remainingRiverCards);
+    }
+
+    if (NpotDenominator > 0.f) {
+        Npot = (HP[0][2] + HP[0][1]/2.f + HP[1][2]/2.f) / (NpotDenominator * remainingRiverCards);
+    }
+    
+    // compute EHS and asymmetry from HS, Ppot and Npot
+    float EHS = computeEHS(handStrength, Ppot, Npot);
+    float asymmetry = computeAsymmetry(handStrength, Ppot, Npot);
+    
+    // compute 1-card turn volatility
     float hsRiver[52];
     int hsCount = 0;
     
@@ -449,7 +533,6 @@ TurnFeatures calculateTurnStrengthTransitions(const std::array<int, 2>& hand,
         }
     }
     
-    // compute volatility
     float mean = 0.f;
     for (int i = 0; i < hsCount; ++i) {
         mean += hsRiver[i];
@@ -464,54 +547,14 @@ TurnFeatures calculateTurnStrengthTransitions(const std::array<int, 2>& hand,
     
     variance /= hsCount;
     float volatility = sqrtf(variance);
-        
-    // hand strength computation
-    float handStrength = (betterThan + 0.5f * equal) / (betterThan + worseThan + equal);
     
-    float PpotDenominator = handPotentialTotal[2] + handPotentialTotal[1];
-    float NpotDenominator = handPotentialTotal[0] + handPotentialTotal[1];
-
-    float Ppot = 0.f;
-    float Npot = 0.f;
-    const float remainingTurnCards = 44.0f;
-
-    // compute potentials if denominators are non-zero
-    if (PpotDenominator > 0.f) {
-        Ppot = (HP[2][0] + HP[2][1]/2.f + HP[1][0]/2.f) / (PpotDenominator * remainingTurnCards);
+    // compute performance against top villain hands
+    float equityUnderPressure = 0.f;
+    if (actualTopHandCount > 0) {
+        equityUnderPressure = (topWins + 0.5f * topTies) / (actualTopHandCount * remainingRiverCards);
     }
 
-    if (NpotDenominator > 0.f) {
-        Npot = (HP[0][2] + HP[0][1]/2.f + HP[1][2]/2.f) / (NpotDenominator * remainingTurnCards);
-    }
-
-    return TurnFeatures{ handStrength, Ppot, Npot, volatility };
-}
-
-// EHS calculators
-// flop overload
-float calculateEHS(const std::array<int,2>& hand,
-                   const std::array<int,3>& board)
-{
-    StrengthTransitions sp = calculateFlopStrengthTransitions(hand, board);
-
-    float winNow = sp.hs;
-    float improve = (1.f - sp.hs) * sp.ppot;
-    float deteriorate = sp.hs * sp.npot;
-
-    return winNow + improve - deteriorate;
-}
-
-// turn overload
-float calculateEHS(const std::array<int,2>& hand,
-                   const std::array<int,4>& board)
-{
-    StrengthTransitions sp = calculateTurnStrengthTransitions(hand, board);
-
-    float winNow = sp.hs;
-    float improve = (1.f - sp.hs) * sp.ppot;
-    float deteriorate = sp.hs * sp.npot;
-
-    return winNow + improve - deteriorate;
+    return TurnFeatures{ EHS, asymmetry, volatility, equityUnderPressure };
 }
 
 RiverFeatures calculateRiverFeatures(const std::array<int, 2>& hand,

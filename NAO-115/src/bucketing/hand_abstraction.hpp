@@ -5,24 +5,23 @@ namespace Eval {
 /**
 Feature vectors for abstraction using values:
 - HS: Expected Hand Strength
-- PPot: Positive Potential
-- NPot: Negative Potential
-- Volatility:
-- Exclusivity:
+- Asymmetry
+- Volatility
+- EquityUnderPressure
  */
 
 struct FlopFeatures {
     float hs;
     float asymmetry;
     float volatility;
-    float eVsTop;
+    float equityUnderPressure;
 };
 
 struct TurnFeatures {
     float hs;
-    float ppot;
-    float npot;
+    float asymmetry;
     float volatility;
+    float equityUnderPressure;
 };
 
 struct RiverFeatures {
@@ -32,16 +31,10 @@ struct RiverFeatures {
     float eVsBot;
 };
 
-float calculateEHS(const std::array<int,2>& hand,
-                   const std::array<int,3>& board);
-
-float calculateEHS(const std::array<int,2>& hand,
-                   const std::array<int,4>& board);
-
-StrengthPotentials calculateFlopFeaturesFast(const std::array<int, 2>& hand,
+FlopFeatures calculateFlopFeaturesTwoAhead(const std::array<int, 2>& hand,
                                        const std::array<int, 3>& board);
 
-StrengthPotentials calculateTurnFeaturesFast(const std::array<int, 2>& hand,
+TurnFeatures calculateTurnFeatures(const std::array<int, 2>& hand,
                                        const std::array<int, 4>& board);
 
 }
