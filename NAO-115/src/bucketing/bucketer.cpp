@@ -29,7 +29,16 @@
 namespace Bucketer {
 
 // CONFIGURATION
+const int FLOP_BUCKETS  = 10;
+const int TURN_BUCKETS  = 20;
+const int RIVER_BUCKETS = 10;
 
+const int SAMPLES_FLOP  = 2000;
+const int SAMPLES_TURN  = 4000;
+const int SAMPLES_RIVER = 2000;
+
+
+/*
 const int FLOP_BUCKETS  = 800;
 const int TURN_BUCKETS  = 2000;
 const int RIVER_BUCKETS = 500;
@@ -37,6 +46,7 @@ const int RIVER_BUCKETS = 500;
 const int SAMPLES_FLOP  = 1000000;
 const int SAMPLES_TURN  = 1000000;
 const int SAMPLES_RIVER = 1000000;
+ */
 
 std::vector<std::array<float,4>> centroids[3];
 std::vector<std::array<float,2>> feature_stats[3];
@@ -113,7 +123,7 @@ std::vector<float> get_features_dynamic(
     if (board.size() == 3) {
         std::array<int, 3> board_arr = { board[0], board[1], board[2] };
         Eval::FlopFeatures f = Eval::calculateFlopFeaturesTwoAhead(hand_arr, board_arr);
-        return { f.hs, f.asymmetry, f.volatility, f.equityUnderPressure };
+        return { f.ehs, f.asymmetry, f.volatility, f.equityUnderPressure };
     }
     
     else if (board.size() == 4) {
@@ -422,6 +432,7 @@ void drawRiver(std::mt19937& rng, std::uniform_int_distribution<int>& dist,
 // CENTROID ARITHMETIC
 
 void generate_centroids() {
+    omp_set_num_threads(6);
     Eval::initialize();
     std::cout << "Training bucketer..." << std::endl;
     
@@ -462,7 +473,7 @@ void generate_centroids() {
                     std::array<int,2> hand; std::array<int,3> board;
                     drawFlop(rng, dist, hand, board);
                     Eval::FlopFeatures f = Eval::calculateFlopFeaturesTwoAhead(hand, board);
-                    data[i] = { f.hs, f.asymmetry, f.volatility, f.equityUnderPressure };
+                    data[i] = { f.ehs, f.asymmetry, f.volatility, f.equityUnderPressure };
                 } else if (street == 1) {
                     std::array<int,2> hand; std::array<int,4> board;
                     drawTurn(rng, dist, hand, board);

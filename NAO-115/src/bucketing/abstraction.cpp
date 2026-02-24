@@ -116,7 +116,7 @@ float calculateTurnHandStrength(const std::array<int, 2>& hand,
     // hand strength computation
     return (betterThan + 0.5f * equal) / (betterThan + worseThan + equal);
 }
-
+/*
 // function to calculate Ppot2 and Npot2
 // not used in practice
 BaseFeatures calculateFlopFeaturesTwoAhead(const std::array<int, 2>& hand, const std::array<int, 3>& board) {
@@ -234,7 +234,7 @@ BaseFeatures calculateFlopFeaturesTwoAhead(const std::array<int, 2>& hand, const
 
     return BaseFeatures{ handStrength, handStrength * handStrength, Ppot, Npot };
 }
-
+*/
 // function to calculate Ppot1 and Npot1
 BaseFeatures calculateFlopFeaturesFast(const std::array<int, 2>& hand,
                            const std::array<int, 3>& board) {
@@ -481,8 +481,9 @@ BaseFeatures calculateTurnFeaturesFast(const std::array<int, 2>& hand,
 
     return BaseFeatures{ handStrength, handStrength * handStrength, Ppot, Npot };
 }
+/*
 
-RiverFeatures calculateRiverFeatures(const std::array<int, 2>& hand,
+RiverFeatures calculateRiverFeaturesFast(const std::array<int, 2>& hand,
                                      const std::array<int, 5>& board) {
     
     uint64_t usedCards = 0;
@@ -567,5 +568,6 @@ RiverFeatures calculateRiverFeatures(const std::array<int, 2>& hand,
     
     return RiverFeatures { eVsUniform, vsStrongDelta, vsWeakDelta, midCurvature };
 }
+*/
 
 }

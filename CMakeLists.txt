@@ -36,14 +36,24 @@ target_include_directories(nao_core PUBLIC "NAO-115/src")
 # OpenMP support for AppleClang (macOS)
 if(APPLE)
     find_library(LIBOMP_LIB omp HINTS /opt/homebrew/opt/libomp/lib)
-    target_compile_options(nao_core PRIVATE -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include)
-    target_link_libraries(nao_core PRIVATE ${LIBOMP_LIB})
+
+    target_compile_options(nao_core
+        PUBLIC
+            -Xpreprocessor -fopenmp
+            -I/opt/homebrew/opt/libomp/include
+    )
+
+    target_link_libraries(nao_core
+        PUBLIC
+            ${LIBOMP_LIB}
+    )
 else()
-    find_package(OpenMP)
-    if(OpenMP_CXX_FOUND)
-        target_compile_options(nao_core PRIVATE ${OpenMP_CXX_FLAGS})
-        target_link_libraries(nao_core PRIVATE OpenMP::OpenMP_CXX)
-    endif()
+    find_package(OpenMP REQUIRED)
+
+    target_link_libraries(nao_core
+        PUBLIC
+            OpenMP::OpenMP_CXX
+    )
 endif()
 
 
