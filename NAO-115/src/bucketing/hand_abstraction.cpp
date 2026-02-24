@@ -43,33 +43,64 @@ inline uint64_t buildDeckMask(const std::initializer_list<int>& usedCards)
     return (~used) & ((1ULL << 52) - 1);
 }
 
-// helper to create flop environment
+//
+
+/*
+helper to create flop environment
+returns:
+ - mask of available cards
+ - 2 encoded self pocket cards, 3 encoded board cards
+ - self rank
+ */
 inline FlopContext createFlopContext(
     const std::array<int,2>& hand,
     const std::array<int,3>& board)
 {
+    
+    int h0 = deck[hand[0]];
+    int h1 = deck[hand[1]];
+    int b0 = deck[board[0]];
+    int b1 = deck[board[1]];
+    int b2 = deck[board[2]];
+    
     // build mask
     uint64_t deckMask = buildDeckMask({ hand[0], hand[1], board[0], board[1], board[2] });
     
-    int selfRank = eval_5(deck[hand[0]], deck[hand[1]], deck[board[0]], deck[board[1]], deck[board[2]]);
+    int selfRank = eval_5(h0, h1, b0, b1, b2);
 
     return {
         deckMask,
-        deck[hand[0]], deck[hand[1]], deck[board[0]], deck[board[1]], deck[board[2]],
+        h0, h1, b0, b1, b2,
         selfRank
     };
 }
 
+/*
+helper to create turn environment
+returns: 
+- mask of available cards
+- 2 encoded self pocket cards, 4 encoded board cards
+- self rank
+ */
 inline TurnContext createTurnContext(
     const std::array<int,2>& hand,
     const std::array<int,4>& board)
 {
     uint64_t deckMask = buildDeckMask({ hand[0], hand[1], board[0], board[1], board[2], board[3] });
+    
+    int h0 = deck[hand[0]];
+    int h1 = deck[hand[1]];
+    int b0 = deck[board[0]];
+    int b1 = deck[board[1]];
+    int b2 = deck[board[2]];
+    int b3 = deck[board[3]];
 
+    int selfRank = eval_6(h0, h1, b0, b1, b2, b3);
+    
     return {
         deckMask,
-        deck[hand[0]], deck[hand[1]], deck[board[0]], deck[board[1]], deck[board[2]], deck[board[3]],
-        eval_6(deck[hand[0]], deck[hand[1]], deck[board[0]], deck[board[1]], deck[board[2]], deck[board[3]])
+        h0, h1, b0, b1, b2, b3,
+        selfRank
     };
 }
 
@@ -219,10 +250,7 @@ FlopFeatures calculateFlopFeaturesTwoAhead(
     int heroEval[52][52] = {};
     
     precomputeHero7(
-        context.deckMask,
-        context.h0, context.h1,
-        context.b0, context.b1, context.b2,
-        heroEval
+        context.deckMask, context.h0, context.h1, context.b0, context.b1, context.b2, heroEval
     );
     
     // initializing counters for EHS calculation
@@ -576,7 +604,6 @@ RiverFeatures calculateRiverFeatures(const std::array<int, 2>& hand,
                                      const std::array<int, 5>& board) {
     
     // before any computation, we need to know our own rank
-    
     int h0 = deck[hand[0]];
     int h1 = deck[hand[1]];
     int b0 = deck[board[0]];
@@ -584,7 +611,6 @@ RiverFeatures calculateRiverFeatures(const std::array<int, 2>& hand,
     int b2 = deck[board[2]];
     int b3 = deck[board[3]];
     int b4 = deck[board[4]];
-
     int selfRank = eval_7(h0, h1, b0, b1, b2, b3, b4);
     
     static constexpr int MAX_SCORE = 7462;
