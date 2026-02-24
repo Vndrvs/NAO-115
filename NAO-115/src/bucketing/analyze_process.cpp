@@ -165,6 +165,19 @@ void DataDistributionLogger::logOutliers(const std::vector<std::vector<float>>& 
         float max_v = *std::max_element(features[f].begin(), features[f].end());
         float range = (max_v - min_v > 1e-9) ? (max_v - min_v) : 1.0f;
         
+        float mid_low;
+        float mid_high;
+        
+        if (labels[f] == "Asymmetry") {
+            // strategic "middle" for Asymmetry is balanced potential (0.0)
+            mid_low = -0.1f;
+            mid_high = 0.1f;
+        } else {
+            // strategic "middle" for Equity/Volatility is 0.5
+            mid_low = 0.45f;
+            mid_high = 0.55f;
+        }
+        
         double mean = means[f];
         double std_dev = stds[f];
         
@@ -180,15 +193,18 @@ void DataDistributionLogger::logOutliers(const std::vector<std::vector<float>>& 
         int high_sigma_count = 0; // over 2 sigma, highest
         int mid_band_count = 0; // middle 10%
         
-        float mid_low = min_v + (range * 0.45f);
-        float mid_high = min_v + (range * 0.55f);
-        
         // data loop
         for (float v : features[f]) {
             // count extremes
-            if (v < thresh_low) low_sigma_count++;
-            if (v > thresh_high) high_sigma_count++;
-            if (v >= mid_low && v <= mid_high) mid_band_count++;
+            if (v < thresh_low) {
+                low_sigma_count++;
+            }
+            if (v > thresh_high) {
+                high_sigma_count++;
+            }
+            if (v >= mid_low && v <= mid_high) {
+                mid_band_count++;
+            }
             
             // populate visual histogram
             visualBins[getBinIndex(v, min_v, range, 50)]++;
@@ -294,8 +310,11 @@ void DataDistributionLogger::logCorrelationAndPCA(const std::vector<std::array<f
     file_ << "Correlation Matrix (copy-ready heatmap) :\n ,";
     for (size_t i = 0; i < labels.size(); ++i) {
         file_ << labels[i];
-        if (i + 1 < labels.size()) file_ << ",";
+        if (i + 1 < labels.size()) {
+            file_ << ",";
+        }
     }
+    
     file_ << "\n";
 
     for (int r = 0; r < n; r++) {
@@ -383,14 +402,20 @@ void DataDistributionLogger::logDistribution(int street, const std::vector<std::
     // prepare stat containers
     std::vector<double> shared_means;
     std::vector<double> shared_stds;
-    std::vector<std::string> labels = {"Equity", "EqSquared", "PPot", "NPot"};
-    std::vector<std::string> riverLabels = {"Strength", "Polarization", "BluffDominance", "Linearity"};
+    std::vector<std::string> currentLabels;
+    if (street == 0 || street == 1) {
+    // Flop and Turn 4D Vector
+        currentLabels = {"Strength", "Asymmetry", "Volatility", "EquityPressure"};
+    } else {
+        // River 4D Vector
+        currentLabels = {"EquityTotal", "EquityTop", "EquityMid", "BlockerIndex"};
+    }
     
     // run loggers
     logMoments(features, shared_means, shared_stds);
-    logOutliers(features, shared_means, shared_stds, labels);
-    logQuantiles(features, labels);
-    logCorrelationAndPCA(data, shared_means, shared_stds, labels);
+    logOutliers(features, shared_means, shared_stds, currentLabels);
+    logQuantiles(features, currentLabels);
+    logCorrelationAndPCA(data, shared_means, shared_stds, currentLabels);
 }
 
 // K-MEANS CONVERGENCE (class: KMeansLogger)
