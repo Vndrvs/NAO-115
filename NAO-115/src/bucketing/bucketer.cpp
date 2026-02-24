@@ -1,6 +1,6 @@
 #include "bucketer.hpp"
 #include "eval/evaluator.hpp"
-#include "abstraction.hpp"
+#include "hand_abstraction.hpp"
 #include "analyze_process.hpp"
 #include <vector>
 #include <algorithm>
@@ -112,18 +112,14 @@ std::vector<float> get_features_dynamic(
 
     if (board.size() == 3) {
         std::array<int, 3> board_arr = { board[0], board[1], board[2] };
-        
-        Eval::BaseFeatures f = Eval::calculateFlopFeaturesFast(hand_arr, board_arr);
-        
-        return { f.e, f.e2, f.ppot, f.npot };
+        Eval::FlopFeatures f = Eval::calculateFlopFeaturesTwoAhead(hand_arr, board_arr);
+        return { f.hs, f.asymmetry, f.volatility, f.equityUnderPressure };
     }
     
     else if (board.size() == 4) {
         std::array<int, 4> board_arr = { board[0], board[1], board[2], board[3] };
-
-        Eval::BaseFeatures f = Eval::calculateTurnFeaturesFast(hand_arr, board_arr);
-        
-        return { f.e, f.e2, f.ppot, f.npot };
+        Eval::TurnFeatures f = Eval::calculateTurnFeatures(hand_arr, board_arr);
+        return { f.ehs, f.asymmetry, f.volatility, f.equityUnderPressure };
     }
 
     return { 0, 0, 0, 0 };
@@ -465,18 +461,18 @@ void generate_centroids() {
                 if (street == 0) {
                     std::array<int,2> hand; std::array<int,3> board;
                     drawFlop(rng, dist, hand, board);
-                    Eval::BaseFeatures f = Eval::calculateFlopFeaturesFast(hand, board);
-                    data[i] = { f.e, f.e2, f.ppot, f.npot };
+                    Eval::FlopFeatures f = Eval::calculateFlopFeaturesTwoAhead(hand, board);
+                    data[i] = { f.hs, f.asymmetry, f.volatility, f.equityUnderPressure };
                 } else if (street == 1) {
                     std::array<int,2> hand; std::array<int,4> board;
                     drawTurn(rng, dist, hand, board);
-                    Eval::BaseFeatures f = Eval::calculateTurnFeaturesFast(hand, board);
-                    data[i] = { f.e, f.e2, f.ppot, f.npot };
+                    Eval::TurnFeatures f = Eval::calculateTurnFeatures(hand, board);
+                    data[i] = { f.ehs, f.asymmetry, f.volatility, f.equityUnderPressure };
                 } else {
                     std::array<int,2> hand; std::array<int,5> board;
                     drawRiver(rng, dist, hand, board);
                     Eval::RiverFeatures f = Eval::calculateRiverFeatures(hand, board);
-                    data[i] = { f.eVsRandom, f.eVsTop, f.eVsMid, f.eVsBot };
+                    data[i] = { f.equityTotal, f.equityTop, f.equityMid, f.blockerIndex };
                 }
             }
         }
@@ -580,8 +576,7 @@ std::vector<float> get_features_river_runtime(
     std::array<int, 5> b = { board[0], board[1], board[2], board[3], board[4] };
 
     Eval::RiverFeatures f = Eval::calculateRiverFeatures(h, b);
-    
-    return { f.eVsRandom, f.eVsTop, f.eVsMid, f.eVsBot };
+    return { f.equityTotal, f.equityTop, f.equityMid, f.blockerIndex };
 }
 
 int get_bucket(const std::vector<int>& h, const std::vector<int>& b) {

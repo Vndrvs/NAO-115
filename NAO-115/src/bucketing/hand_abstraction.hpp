@@ -11,14 +11,14 @@ Feature vectors for abstraction using values:
  */
 
 struct FlopFeatures {
-    float hs;
+    float ehs;
     float asymmetry;
     float volatility;
     float equityUnderPressure;
 };
 
 struct TurnFeatures {
-    float hs;
+    float ehs;
     float asymmetry;
     float volatility;
     float equityUnderPressure;

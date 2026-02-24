@@ -381,7 +381,7 @@ FlopFeatures calculateFlopFeaturesTwoAhead(
         equityUnderPressure = (topWins + 0.5f * topTies) / (topCount * 990.f);
     }
 
-    return FlopFeatures{ handStrength, asymmetry, volatility, equityUnderPressure };
+    return FlopFeatures{ EHS, asymmetry, volatility, equityUnderPressure };
 }
 
 // function to calculate strength variables for turn
@@ -739,94 +739,4 @@ RiverFeatures calculateRiverFeatures(const std::array<int, 2>& hand,
     };
 }
 
-
-
-
-
-
-
-
-
-/*
-RiverFeatures calculateRiverFeatures(const std::array<int, 2>& hand,
-                                     const std::array<int, 5>& board) {
-    
-    uint64_t usedCards = 0;
-    int totalVillainCombos = 990;
-    
-    usedCards |= (1ULL << hand[0]);
-    usedCards |= (1ULL << hand[1]);
-    usedCards |= (1ULL << board[0]);
-    usedCards |= (1ULL << board[1]);
-    usedCards |= (1ULL << board[2]);
-    usedCards |= (1ULL << board[3]);
-    usedCards |= (1ULL << board[4]);
-    
-    uint64_t mask = (~usedCards) & ((uint64_t(1) << 52) - 1);
-    
-    int h0 = deck[hand[0]];
-    int h1 = deck[hand[1]];
-    int b0 = deck[board[0]];
-    int b1 = deck[board[1]];
-    int b2 = deck[board[2]];
-    int b3 = deck[board[3]];
-    int b4 = deck[board[4]];
-    
-    int selfRank = eval_7(h0, h1, b0, b1, b2, b3, b4);
-    std::array<int, 990> villainCombos;
-    
-    int count = 0;
-    while (mask) {
-        int villainIndex1 = __builtin_ctzll(mask);
-        int villainCard1 = deck[villainIndex1];
-        mask &= (mask - 1);
-        
-        uint64_t mask2 = mask;
-        
-        while(mask2) {
-            int villainIndex2 = __builtin_ctzll(mask2);
-            int villainCard2 = deck[villainIndex2];
-            mask2 &= (mask2 - 1);
-            
-            int villainScore = eval_7(b0, b1, b2, b3, b4, villainCard1, villainCard2);
-            villainCombos[count] = villainScore;
-            
-            count++;
-        }
-    }
-    
-    std::sort(villainCombos.begin(), villainCombos.end());
-    
-    auto eq = [&](int start, int end) -> float {
-        if (start >= end) return 0.0f;
-        
-        float wins = 0.0f;
-        float ties = 0.0f;
-        
-        for(int i = start; i < end; i++) {
-            if(selfRank > villainCombos[i]) {
-                wins += 1.0f;
-            } else if(selfRank == villainCombos[i]) {
-                ties += 1.0f;
-            }
-        }
-        
-        return (wins + 0.5f * ties) / float(end - start);
-    };
-    
-    int botStart = 0;
-    int botEnd = int(0.2f * totalVillainCombos);
-    
-    int midStart = int(0.4 * totalVillainCombos);
-    int midEnd   = int(0.6 * totalVillainCombos);
-
-    int topStart = int(0.85 * totalVillainCombos);
-    int topEnd = totalVillainCombos;
-            
-    float eVsTop = eq(topStart, topEnd);
-    
-    return RiverFeatures { eVsUniform, vsStrongDelta, vsWeakDelta, midCurvature };
-}
-
-*/
 }
