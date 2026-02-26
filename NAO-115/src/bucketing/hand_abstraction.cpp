@@ -1,6 +1,7 @@
 #include "eval/evaluator.hpp"
 #include "hand_abstraction.hpp"
 #include <iostream>
+#include <iomanip>
 
 namespace Eval {
 /*
@@ -51,6 +52,7 @@ returns:
  - mask of available cards
  - 2 encoded self pocket cards, 3 encoded board cards
  - self rank
+
  */
 inline FlopContext createFlopContext(
     const std::array<int,2>& hand,
@@ -102,78 +104,6 @@ inline TurnContext createTurnContext(
         h0, h1, b0, b1, b2, b3,
         selfRank
     };
-}
-
-// helper to run histogram logic involved in top range feature calculation
-template <typename EvalFn>
-inline int computeTopRangeCutoff(
-    uint64_t availableDeckMask,
-    float topPercentage,
-    int& outTopComboCount,
-    EvalFn evalVillain)
-{
-    constexpr int MAX_EVAL_SCORE = 7463;
-    int scoreHistogram[MAX_EVAL_SCORE] = {};
-    int totalVillainCombos = 0;
-
-    uint64_t firstMask = availableDeckMask;
-    while (firstMask) {
-        int i = __builtin_ctzll(firstMask);
-        firstMask &= firstMask - 1;
-
-        uint64_t secondMask = firstMask;
-        while (secondMask) {
-            int j = __builtin_ctzll(secondMask);
-            secondMask &= secondMask - 1;
-
-            int score = evalVillain(i, j);
-            scoreHistogram[score]++;
-            totalVillainCombos++;
-        }
-    }
-
-    outTopComboCount = int(totalVillainCombos * topPercentage + 0.5f);
-
-    int accumulated = 0;
-    for (int s = MAX_EVAL_SCORE - 1; s >= 0; --s) {
-        accumulated += scoreHistogram[s];
-        if (accumulated >= outTopComboCount)
-            return s;
-    }
-
-    return MAX_EVAL_SCORE - 1;
-}
-
-inline int computeTopRangeCutoffFlop(
-    uint64_t deckMask,
-    int b0, int b1, int b2,
-    float topPct,
-    int& outTopCount)
-{
-    return computeTopRangeCutoff(
-        deckMask,
-        topPct,
-        outTopCount,
-        [&](int i, int j) {
-            return eval_5(b0, b1, b2, deck[i], deck[j]);
-        }
-    );
-}
-
-inline int computeTopRangeCutoffTurn(
-    uint64_t deckMask,
-    int b0, int b1, int b2, int b3,
-    float topPct,
-    int& outTopCount)
-{
-    return computeTopRangeCutoff(
-        deckMask,
-        topPct,
-        outTopCount,
-        [&](int i, int j) {
-            return eval_6(b0, b1, b2, b3, deck[i], deck[j]);
-        }
-    );
 }
 
 inline void precomputeHero7(
@@ -235,17 +165,9 @@ FlopFeatures calculateFlopFeaturesTwoAhead(
     const std::array<int, 2>& hand,
     const std::array<int, 3>& board)
 {
-    
+        
     // call environment initializer helper
     auto context = createFlopContext(hand, board);
-
-    // variables for EquityUnderPressure feature
-    int topCount;
-    int cutoff = computeTopRangeCutoffFlop(
-        context.deckMask, context.b0, context.b1, context.b2,
-        0.15f, topCount);
-    float topWins = 0.f;
-    float topTies = 0.f;
     
     int heroEval[52][52] = {};
     
@@ -283,7 +205,6 @@ FlopFeatures calculateFlopFeaturesTwoAhead(
 
             // evaluate 5-card villain score with the given cards
             int villainScore = eval_5(context.b0, context.b1, context.b2, villainCard1, villainCard2);
-            bool isTopRange = (villainScore >= cutoff);
 
             int flopState;
             // set flop starting state and count comparison results
@@ -297,7 +218,7 @@ FlopFeatures calculateFlopFeaturesTwoAhead(
                 equal += 1.f;
                 flopState = TIED;
             }
-
+            
             handPotentialTotal[flopState] += 1.f;
 
             uint64_t turnMask = context.deckMask;
@@ -322,14 +243,6 @@ FlopFeatures calculateFlopFeaturesTwoAhead(
                     // compute villain's 7-card score
                     int villainBest = eval_7(villainCard1, villainCard2, context.b0, context.b1, context.b2, turnCard, riverCard);
 
-                    // increment the 4th feature counters
-                    if (isTopRange) {
-                        if (selfBest > villainBest) {
-                            topWins += 1.f;
-                        } else if (selfBest == villainBest) {
-                            topTies += 1.f;
-                        }
-                    }
                     
                     int finalState;
                     // compare self and villain score to set final state variables
@@ -342,7 +255,7 @@ FlopFeatures calculateFlopFeaturesTwoAhead(
                         finalState = TIED;
                         hsTie[turnCardIndex][riverCardIndex]++;
                     }
-
+                
                     hsTotal[turnCardIndex][riverCardIndex]++;
                     HP[flopState][finalState] += 1.f;
                 }
@@ -397,22 +310,19 @@ FlopFeatures calculateFlopFeaturesTwoAhead(
 
     float volatility = sqrtf(variance);
     
-    // compute performance against top villain hands
-    float equityUnderPressure = 0.f;
-    if (topCount > 0) {
-        equityUnderPressure = (topWins + 0.5f * topTies) / (topCount * 990.f);
-    }
-    
-    if (equityUnderPressure > 0.8f) {
-        std::cout
-            << "EUP=" << equityUnderPressure
-            << " HS=" << handStrength
-            << " VOL=" << volatility
-            << " topCount=" << topCount
-            << "\n";
-    }
+    float nutPotential = 0.f;
+    // calibration console log
+    std::cout << "\n--- FLOP TEST CALIBRATION ---" << std::endl;
+    std::cout << "Hand: [" << hand[0] << "," << hand[1] << "] Board: [" << board[0] << "," << board[1] << "," << board[2] << "]" << std::endl;
+    std::cout << "HS:         " << handStrength << "f" << std::endl;
+    std::cout << "Ppot:       " << Ppot << "f" << std::endl;
+    std::cout << "Npot:       " << Npot << "f" << std::endl;
+    std::cout << "EHS:        " << EHS << "f" << std::endl;
+    std::cout << "Asymmetry:  " << asymmetry << "f" << std::endl;
+    std::cout << "Volatility: " << volatility << "f" << std::endl;
+    std::cout << "-----------------------------\n" << std::endl;
 
-    return FlopFeatures{ EHS, asymmetry, volatility, equityUnderPressure };
+    return FlopFeatures{ EHS, asymmetry, volatility, nutPotential };
 }
 
 // function to calculate strength variables for turn
@@ -421,17 +331,7 @@ TurnFeatures calculateTurnFeatures(const std::array<int, 2>& hand,
     
     // call environment initializer helper
     auto context = createTurnContext(hand, board);
-    
-    // variables for EquityUnderPressure feature
-    int topCount;
-    int cutoff = computeTopRangeCutoffTurn(
-        context.deckMask, context.b0, context.b1, context.b2, context.b3,
-        0.15f, topCount);
-    float topWins = 0.f;
-    float topTies = 0.f;
-    float topCombosWithRiver = 0;
 
-    
     int heroRiverEvals[52] = {};
     uint64_t preRiverMask = context.deckMask;
     
@@ -471,8 +371,8 @@ TurnFeatures calculateTurnFeatures(const std::array<int, 2>& hand,
             villainMask2 &= (villainMask2 - 1);
             
             int villainScore = eval_6(context.b0, context.b1, context.b2, context.b3, villainCard1, villainCard2); // evaluate villain on turn
-            bool isTopRange = (villainScore >= cutoff);
-            
+
+            // initialize and set starting score comparison
             int turnState;
             
             if(context.selfRank < villainScore) {
@@ -488,28 +388,20 @@ TurnFeatures calculateTurnFeatures(const std::array<int, 2>& hand,
             
             handPotentialTotal[turnState] += 1.f;
             
+            // create mask with available cards for river draw
             uint64_t riverMask = context.deckMask;
             riverMask &= ~(1ULL << villainIndex1);
             riverMask &= ~(1ULL << villainIndex2);
             
-            
             while(riverMask) {
                 int riverCardIndex = __builtin_ctzll(riverMask); // draw river card
-                int riverCard = deck[riverCardIndex]; // draw turn card
-                riverMask &= (riverMask - 1); // remove used turn card from mask
+                int riverCard = deck[riverCardIndex]; // draw river card
+                riverMask &= (riverMask - 1); // remove used river card from mask
                 
                 int selfBest = heroRiverEvals[riverCardIndex];
                 int villainBest = eval_7(villainCard1, villainCard2, context.b0, context.b1, context.b2, context.b3, riverCard); // calculate opponent score
                 
-                if (isTopRange) {
-                    topCombosWithRiver++;
-                    if (selfBest > villainBest) {
-                        topWins++;
-                    } else if (selfBest == villainBest) {
-                        topTies++;
-                    }
-                }
-                
+                // initialize and set score comparison after drawing the river card
                 int finalState;
                 
                 if(selfBest < villainBest) {
@@ -541,15 +433,11 @@ TurnFeatures calculateTurnFeatures(const std::array<int, 2>& hand,
     // compute potentials if denominators are non-zero
     
     if (PpotDenominator > 0.f) {
-        Ppot = (HP[2][0] + HP[2][1]/2.f + HP[1][0]/2.f)
-               / (HP[2][0] + HP[2][1] + HP[2][2] +
-                  HP[1][0] + HP[1][1] + HP[1][2]);
+        Ppot = (HP[2][0] + HP[2][1]/2.f + HP[1][0]/2.f) / (PpotDenominator * remainingRiverCards);
     }
 
     if (NpotDenominator > 0.f) {
-        Npot = (HP[0][2] + HP[0][1]/2.f + HP[1][2]/2.f)
-               / (HP[0][0] + HP[0][1] + HP[0][2] +
-                  HP[1][0] + HP[1][1] + HP[1][2]);
+        Npot = (HP[0][2] + HP[0][1]/2.f + HP[1][2]/2.f) / (NpotDenominator * remainingRiverCards);
     }
     
     // compute EHS and asymmetry from HS, Ppot and Npot
@@ -581,21 +469,17 @@ TurnFeatures calculateTurnFeatures(const std::array<int, 2>& hand,
     
     variance /= hsCount;
     float volatility = sqrtf(variance);
-    
-    // compute performance against top villain hands
-    float equityUnderPressure = 0.f;
-    if (topCombosWithRiver > 0.f) {
-        equityUnderPressure = (topWins + 0.5f * topTies) / topCombosWithRiver;
-    }
-    
-    if (equityUnderPressure > 0.8f) {
-        std::cout
-            << "EUP=" << equityUnderPressure
-            << " HS=" << handStrength
-            << " VOL=" << volatility
-            << " topCount=" << topCount
-            << "\n";
-    }
+
+    // calibration console log
+    std::cout << "\n--- TURN TEST CALIBRATION ---" << std::endl;
+    std::cout << "Hand: [" << hand[0] << "," << hand[1] << "] Board: [" << board[0] << "," << board[1] << "," << board[2] << "," << board[3] << "]" << std::endl;
+    std::cout << "HS:         " << handStrength << "f" << std::endl;
+    std::cout << "Ppot:       " << Ppot << "f" << std::endl;
+    std::cout << "Npot:       " << Npot << "f" << std::endl;
+    std::cout << "EHS:        " << EHS << "f" << std::endl;
+    std::cout << "Asymmetry:  " << asymmetry << "f" << std::endl;
+    std::cout << "Volatility: " << volatility << "f" << std::endl;
+    std::cout << "-----------------------------\n" << std::endl;
     
     return TurnFeatures{ EHS, asymmetry, volatility, equityUnderPressure };
 }
@@ -775,6 +659,7 @@ RiverFeatures calculateRiverFeatures(const std::array<int, 2>& hand,
         blockerIndex = 1.f - (float(topCombos) / float(topCombosNoHero));
     }
     
+    // calculate equity against regions
     float equityTotal = (winAll + 0.5f * tieAll) / totalCombos;
     float equityTop   = topCombos ? (winTop + 0.5f * tieTop) / topCombos : 0.f;
     float equityMid   = midCombos ? (winMid + 0.5f * tieMid) / midCombos : 0.f;

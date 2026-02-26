@@ -356,7 +356,8 @@ std::vector<std::array<float,4>> kmeans(
 
     // final summary log
     logger.logSummary(iterations_completed, initial_inertia, final_inertia, reseed_count);
-
+    
+    std::cout.unsetf(std::ios_base::floatfield);
     return centroids;
 }
 

@@ -281,22 +281,79 @@ protected:
     }
 };
 
-TEST_F(BucketerTest, FlopFeaturesStrategicSanity) {
-    // Indices for 9s, 8s, 7s, 6s, 2d
-    // These indices MUST be converted to the evaluator's internal format
-    std::array<int, 2> hand = {30, 26};
-    std::array<int, 3> board = {22, 18, 2};
-    
-    // Ensure you are using the optimized function that handles deck lookups
+TEST_F(BucketerTest, FlopFeatures_NutStraight_LowVolatility) {
+    // Hand: 9♠ 8♠
+    // Board: 7♦ 6♣ 5♥  → nut straight, very static
+    std::array<int, 2> hand  = {30, 26};
+    std::array<int, 3> board = {22, 18, 14};
+
     auto f = Eval::calculateFlopFeaturesTwoAhead(hand, board);
-    
-    // Strategic expectations for a massive draw:
-    // 1. hs: Should be moderate (~0.45) because it hasn't hit yet
-    EXPECT_NEAR(f.ehs, 0.45f, 0.15f);
-    
-    // 2. asymmetry: Should be positive (upside potential)
-    EXPECT_GT(f.asymmetry, 0.2f);
-    
-    // 3. volatility: Should be high (many cards change the outcome)
-    EXPECT_GT(f.volatility, 0.1f);
+
+    // Already crushing
+    EXPECT_GT(f.ehs, 0.85f);
+
+    // Little downside left
+    EXPECT_LT(f.asymmetry, 0.1f);
+
+    // Board is static → low volatility
+    EXPECT_LT(f.volatility, 0.05f);
+
+    // Even vs top range, should hold well
+    EXPECT_GT(f.equityUnderPressure, 0.7f);
+}
+
+TEST_F(BucketerTest, FlopFeatures_MonsterDraw_HighUpside) {
+    // Hand: A♠ K♠
+    // Board: Q♠ J♦ 2♣  → nut straight + nut flush draw
+    std::array<int, 2> hand  = {51, 47};
+    std::array<int, 3> board = {43, 39, 2};
+
+    auto f = Eval::calculateFlopFeaturesTwoAhead(hand, board);
+
+    // Not there yet
+    EXPECT_GT(f.ehs, 0.35f);
+    EXPECT_LT(f.ehs, 0.6f);
+
+    // Huge upside
+    EXPECT_GT(f.asymmetry, 0.3f);
+
+    // Many turn/river realizations
+    EXPECT_GT(f.volatility, 0.12f);
+
+    // Under pressure, still decent due to nut potential
+    EXPECT_GT(f.equityUnderPressure, 0.25f);
+}
+
+TEST_F(BucketerTest, FlopFeatures_WeakTopPair_LowEUP) {
+    // Hand: A♣ 9♦
+    // Board: A♥ K♠ Q♦  → top pair, terrible texture
+    std::array<int, 2> hand  = {50, 33};
+    std::array<int, 3> board = {48, 45, 42};
+
+    auto f = Eval::calculateFlopFeaturesTwoAhead(hand, board);
+
+    // Ahead often now, but fragile
+    EXPECT_GT(f.ehs, 0.4f);
+
+    // Little upside, mostly downside
+    EXPECT_LT(f.asymmetry, 0.0f);
+
+    // Many bad runouts
+    EXPECT_GT(f.volatility, 0.08f);
+
+    // Against top range, this hand suffers
+    EXPECT_LT(f.equityUnderPressure, 0.35f);
+}
+
+TEST_F(BucketerTest, FlopFeatures_Air_BadEverywhere) {
+    // Hand: 7♣ 2♦
+    // Board: A♠ K♦ Q♥
+    std::array<int, 2> hand  = {19, 2};
+    std::array<int, 3> board = {51, 45, 43};
+
+    auto f = Eval::calculateFlopFeaturesTwoAhead(hand, board);
+
+    EXPECT_LT(f.ehs, 0.25f);
+    EXPECT_LT(f.asymmetry, 0.0f);
+    EXPECT_LT(f.equityUnderPressure, 0.15f);
 }
