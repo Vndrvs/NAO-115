@@ -405,7 +405,7 @@ void DataDistributionLogger::logDistribution(int street, const std::vector<std::
     std::vector<std::string> currentLabels;
     if (street == 0 || street == 1) {
     // Flop and Turn 4D Vector
-        currentLabels = {"Strength", "Asymmetry", "Volatility", "EquityPressure"};
+        currentLabels = {"Hand Strength", "EHS", "Asymmetry", "Volatility"};
     } else {
         // River 4D Vector
         currentLabels = {"EquityTotal", "EquityTop", "EquityMid", "BlockerIndex"};

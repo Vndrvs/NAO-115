@@ -273,87 +273,120 @@ class BucketerTest : public ::testing::Test {
 protected:
     void SetUp() override {
         Eval::initialize();
-
         for (int i = 0; i < 3; ++i) {
             centroids[i].clear();
             feature_stats[i].clear();
         }
     }
+
+    void assertNoDegeneration(const Eval::FlopFeatures& f) {
+        EXPECT_FALSE(std::isnan(f.ehs));
+        EXPECT_FALSE(std::isnan(f.asymmetry));
+        EXPECT_FALSE(std::isnan(f.volatility));
+        EXPECT_FALSE(std::isnan(f.exclusivity));
+
+        EXPECT_FALSE(std::isinf(f.ehs));
+        EXPECT_FALSE(std::isinf(f.asymmetry));
+        EXPECT_FALSE(std::isinf(f.volatility));
+        EXPECT_FALSE(std::isinf(f.exclusivity));
+    }
+
+    void assertBounded(const Eval::FlopFeatures& f) {
+        EXPECT_GE(f.ehs,         0.f);
+        EXPECT_LE(f.ehs,         1.f);
+        EXPECT_GE(f.volatility,  0.f);
+        EXPECT_LE(f.volatility,  1.f);
+        EXPECT_GE(f.exclusivity, 0.f);
+        EXPECT_LE(f.exclusivity, 1.f);
+        EXPECT_GE(f.asymmetry,  -1.f);
+        EXPECT_LE(f.asymmetry,   1.f);
+    }
 };
 
-TEST_F(BucketerTest, FlopFeatures_NutStraight_LowVolatility) {
-    // Hand: 9♠ 8♠
-    // Board: 7♦ 6♣ 5♥  → nut straight, very static
-    std::array<int, 2> hand  = {30, 26};
-    std::array<int, 3> board = {22, 18, 14};
+TEST_F(BucketerTest, Flop_NutFlushDraw_DryBoard) {
+    // Hand: A♥ 2♥  Board: 7♥ 3♥ K♠
+    // Correctly a flush draw — only 3 hearts on board+hand combined
+    // A♥ blocks nut flush for villain, high exclusivity expected
+    std::array<int, 2> hand  = {49, 1};  // A♥ 2♥
+    std::array<int, 3> board = {25, 9, 44}; // 7♥ 3♥ K♠
 
     auto f = Eval::calculateFlopFeaturesTwoAhead(hand, board);
 
-    // Already crushing
-    EXPECT_GT(f.ehs, 0.85f);
+    assertNoDegeneration(f);
+    assertBounded(f);
 
-    // Little downside left
-    EXPECT_LT(f.asymmetry, 0.1f);
-
-    // Board is static → low volatility
-    EXPECT_LT(f.volatility, 0.05f);
-
-    // Even vs top range, should hold well
-    EXPECT_GT(f.equityUnderPressure, 0.7f);
+    EXPECT_GT(f.ehs,         0.40f);
+    EXPECT_GT(f.asymmetry,   0.0f);  // upside dominates
+    EXPECT_GT(f.volatility,  0.15f);
+    EXPECT_GT(f.exclusivity, 0.40f);
 }
 
-TEST_F(BucketerTest, FlopFeatures_MonsterDraw_HighUpside) {
-    // Hand: A♠ K♠
-    // Board: Q♠ J♦ 2♣  → nut straight + nut flush draw
-    std::array<int, 2> hand  = {51, 47};
-    std::array<int, 3> board = {43, 39, 2};
+TEST_F(BucketerTest, Flop_OESD_Behind_LowExclusivity) {
+    // Hand: 8♠ 7♥  Board: 9♦ 6♣ 2♥
+    // OESD — straights complete with 5 or T, shared with villain range
+    // HS is actually high (8-high beats unpaired hands), Npot significant
+    std::array<int, 2> hand  = {24, 21};
+    std::array<int, 3> board = {26, 19, 5};
 
     auto f = Eval::calculateFlopFeaturesTwoAhead(hand, board);
 
-    // Not there yet
-    EXPECT_GT(f.ehs, 0.35f);
-    EXPECT_LT(f.ehs, 0.6f);
+    assertNoDegeneration(f);
+    assertBounded(f);
 
-    // Huge upside
-    EXPECT_GT(f.asymmetry, 0.3f);
-
-    // Many turn/river realizations
-    EXPECT_GT(f.volatility, 0.12f);
-
-    // Under pressure, still decent due to nut potential
-    EXPECT_GT(f.equityUnderPressure, 0.25f);
+    EXPECT_GT(f.ehs,         0.60f);
+    EXPECT_LT(f.asymmetry,   0.0f);  // currently strong, faces significant Npot
+    EXPECT_GT(f.volatility,  0.08f);
+    EXPECT_LT(f.exclusivity, 0.40f); // straight outs shared with villain
 }
 
-TEST_F(BucketerTest, FlopFeatures_WeakTopPair_LowEUP) {
-    // Hand: A♣ 9♦
-    // Board: A♥ K♠ Q♦  → top pair, terrible texture
-    std::array<int, 2> hand  = {50, 33};
-    std::array<int, 3> board = {48, 45, 42};
+TEST_F(BucketerTest, Flop_CompleteAir_MonotoneBoard) {
+    // Hand: 9♠ 4♥  Board: A♠ K♠ Q♠
+    // No spade, broadway draws available, EHS pulled up by straight outs
+    // High exclusivity because runouts where hero wins tend to be exclusive
+    std::array<int, 2> hand  = {28, 13};
+    std::array<int, 3> board = {48, 44, 40};
 
     auto f = Eval::calculateFlopFeaturesTwoAhead(hand, board);
 
-    // Ahead often now, but fragile
-    EXPECT_GT(f.ehs, 0.4f);
+    assertNoDegeneration(f);
+    assertBounded(f);
 
-    // Little upside, mostly downside
-    EXPECT_LT(f.asymmetry, 0.0f);
+    EXPECT_LT(f.ehs,         0.60f);
+    EXPECT_GT(f.asymmetry,   0.0f);
+    EXPECT_GT(f.exclusivity, 0.60f);
+}
+TEST_F(BucketerTest, Flop_BottomTwoPair_WetBoard) {
+    // Hand: 3♠ 2♥  Board: 3♥ 2♦ J♠
+    // Bottom two pair on a board with straight and trips danger
+    // Expect: decent HS but EHS pulled down by high Npot,
+    //         negative asymmetry, high volatility
+    std::array<int, 2> hand  = {4, 1};
+    std::array<int, 3> board = {5, 2, 36};
 
-    // Many bad runouts
-    EXPECT_GT(f.volatility, 0.08f);
+    auto f = Eval::calculateFlopFeaturesTwoAhead(hand, board);
 
-    // Against top range, this hand suffers
-    EXPECT_LT(f.equityUnderPressure, 0.35f);
+    assertNoDegeneration(f);
+    assertBounded(f);
+
+    EXPECT_GT(f.ehs,        0.40f);
+    EXPECT_LT(f.asymmetry,  0.0f);  // downside risk dominates
+    EXPECT_GT(f.volatility, 0.10f);
 }
 
-TEST_F(BucketerTest, FlopFeatures_Air_BadEverywhere) {
-    // Hand: 7♣ 2♦
-    // Board: A♠ K♦ Q♥
-    std::array<int, 2> hand  = {19, 2};
-    std::array<int, 3> board = {51, 45, 43};
+
+TEST_F(BucketerTest, Flop_TopFullHouse_VeryStrong) {
+    // Hand: J♠ J♥  Board: J♦ 7♠ 7♥
+    // Flopped top full house — only quads 7s and runner-runner straight flush beat us
+    // Expect: very high EHS, very low volatility, negative asymmetry
+    std::array<int, 2> hand  = {36, 37};
+    std::array<int, 3> board = {38, 24, 25};
 
     auto f = Eval::calculateFlopFeaturesTwoAhead(hand, board);
 
-    EXPECT_LT(f.ehs, 0.25f);
-    EXPECT_LT(f.asymmetry, 0.0f);
-    EXPECT_LT(f.equityUnderPressure, 0.15f);
+    assertNoDegeneration(f);
+    assertBounded(f);
+
+    EXPECT_GT(f.ehs,        0.95f);
+    EXPECT_LT(f.volatility, 0.08f);
+    EXPECT_LT(f.asymmetry,  0.0f);
 }

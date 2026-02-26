@@ -15,14 +15,12 @@ struct FlopFeatures {
     float ehs;
     float asymmetry;
     float volatility;
-    float exclusivity;
 };
 
 struct TurnFeatures {
     float ehs;
     float asymmetry;
     float volatility;
-    float exclusivity;
 };
 
 struct RiverFeatures {

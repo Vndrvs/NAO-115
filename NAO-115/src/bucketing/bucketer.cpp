@@ -123,24 +123,22 @@ std::vector<float> get_features_dynamic(
     if (board.size() == 3) {
         std::array<int, 3> board_arr = { board[0], board[1], board[2] };
         Eval::FlopFeatures f = Eval::calculateFlopFeaturesTwoAhead(hand_arr, board_arr);
-        return { f.ehs, f.asymmetry, f.volatility, f.equityUnderPressure };
+        return { f.ehs, f.asymmetry, f.volatility };
     }
     
     else if (board.size() == 4) {
         std::array<int, 4> board_arr = { board[0], board[1], board[2], board[3] };
         Eval::TurnFeatures f = Eval::calculateTurnFeatures(hand_arr, board_arr);
-        return { f.ehs, f.asymmetry, f.volatility, f.equityUnderPressure };
+        return { f.ehs, f.asymmetry, f.volatility };
     }
 
     return { 0, 0, 0, 0 };
 }
 
 // NORMALIZATION
-void compute_stats(const std::vector<std::array<float,4>>& data,
-                   std::vector<std::array<float,2>>& stats)
-{
+void compute_stats(const std::vector<std::vector<float>>& data, std::vector<std::array<float,2>>& stats) {
     const size_t n = data.size();
-    const size_t dim = 4;
+    const size_t dim = data[0].size();
 
     stats.assign(dim, {0.f, 0.f});
 
@@ -175,10 +173,8 @@ void compute_stats(const std::vector<std::array<float,4>>& data,
  to standardize features for k-means algorithm
  */
 
-void apply_z(std::vector<std::array<float,4>>& data,
-             const std::vector<std::array<float,2>>& stats)
-{
-    const size_t dim = 4;
+void apply_z(std::vector<std::vector<float>>& data, const std::vector<std::array<float,2>>& stats) {
+    const size_t dim = data[0].size();
 
     for (std::array<float,4>& point : data) {
         for (size_t i = 0; i < dim; ++i) {
@@ -193,13 +189,13 @@ void apply_z(std::vector<std::array<float,4>>& data,
 // KMEANS
 
 std::vector<std::array<float,4>> kmeans(
-    const std::vector<std::array<float,4>>& data,
+    const std::vector<std::vector<float>>& data,
     int k,
     const std::string& logFilename,
     int max_iters
 ) {
     const size_t n = data.size();
-    const size_t dim = 4;
+    const size_t dim = data[0].size();
     int num_threads = omp_get_max_threads();
 
     if (data.empty()) {
@@ -213,10 +209,9 @@ std::vector<std::array<float,4>> kmeans(
     }
 
     std::vector<size_t> assignments(n, 0);
-    std::vector<std::array<float,4>> centroids(k);
-    std::vector<std::array<float,4>> old_centroids(k);
-
-    std::vector<std::array<float,4>> sum(k, {0.f,0.f,0.f,0.f});
+    std::vector<std::vector<float>> centroids(k, std::vector<float>(dim));
+    std::vector<std::vector<float>> old_centroids(k, std::vector<float>(dim));
+    std::vector<std::vector<float>> sum(k, std::vector<float>(dim, 0.f));
     std::vector<int> count(k, 0);
 
     std::mt19937 rng(123);
@@ -236,7 +231,7 @@ std::vector<std::array<float,4>> kmeans(
     float final_inertia = 0.f;
     int reseed_count = 0;
     
-    std::vector<std::vector<std::array<double, 4>>> local_sums(num_threads, std::vector<std::array<double, 4>>(k, {0.0, 0.0, 0.0, 0.0}));
+    std::vector<std::vector<std::vector<double>>> local_sums(num_threads, std::vector<std::vector<double>>(k, std::vector<double>(dim, 0.0)));
     std::vector<std::vector<int>> local_counts(num_threads, std::vector<int>(k, 0));
 
     int iterations_completed = 0;
@@ -459,7 +454,15 @@ void generate_centroids() {
             N = SAMPLES_RIVER;
         }
         
-        std::vector<std::array<float, 4>> data(N);
+        int dim;
+        
+        if (street == 2) {
+            dim = 4;
+        } else {
+            dim = 3;
+        }
+        
+        std::vector<std::vector<float>> data(N, std::vector<float>(dim));
         
         std::cout << "[1/4] Generating " << N << " samples..." << std::flush;
         
@@ -474,12 +477,12 @@ void generate_centroids() {
                     std::array<int,2> hand; std::array<int,3> board;
                     drawFlop(rng, dist, hand, board);
                     Eval::FlopFeatures f = Eval::calculateFlopFeaturesTwoAhead(hand, board);
-                    data[i] = { f.ehs, f.asymmetry, f.volatility, f.equityUnderPressure };
+                    data[i] = { f.ehs, f.asymmetry, f.volatility };
                 } else if (street == 1) {
                     std::array<int,2> hand; std::array<int,4> board;
                     drawTurn(rng, dist, hand, board);
                     Eval::TurnFeatures f = Eval::calculateTurnFeatures(hand, board);
-                    data[i] = { f.ehs, f.asymmetry, f.volatility, f.equityUnderPressure };
+                    data[i] = { f.ehs, f.asymmetry, f.volatility };
                 } else {
                     std::array<int,2> hand; std::array<int,5> board;
                     drawRiver(rng, dist, hand, board);
@@ -522,7 +525,7 @@ void generate_centroids() {
     } else {
         for(int street = 0; street < 3; street++){
             int numCentroids = static_cast<int>(centroids[street].size());
-            int numFeatures = 4;
+            int numFeatures = dim;
             
             out.write((char*)&numCentroids, sizeof(int));
             out.write((char*)&numFeatures, sizeof(int));
@@ -580,10 +583,7 @@ void initialize() {
     initialized = true;
 }
 
-std::vector<float> get_features_river_runtime(
-    const std::vector<int>& hand,
-    const std::vector<int>& board
-) {
+std::vector<float> get_features_river_runtime(const std::vector<int>& hand, const std::vector<int>& board) {
     std::array<int, 2> h = { hand[0], hand[1] };
     std::array<int, 5> b = { board[0], board[1], board[2], board[3], board[4] };
 
@@ -610,7 +610,9 @@ int get_bucket(const std::vector<int>& h, const std::vector<int>& b) {
 
     std::vector<float> f_norm = f_vec;
 
-    for(int i=0; i<4; i++){ // We know dim is 4
+    int dim = centroids[st][0].size();
+    
+    for(int i=0; i < dim; i++){
         float m = feature_stats[st][i][0];
         float s = feature_stats[st][i][1];
         if(s > 1e-9f) {
@@ -623,7 +625,7 @@ int get_bucket(const std::vector<int>& h, const std::vector<int>& b) {
     
     for(int i=0; i < centroids[st].size(); i++){
         float d = 0.f;
-        for(int k=0; k<4; k++) {
+        for(int k=0; k < dim; k++) {
             float diff = f_norm[k] - centroids[st][i][k];
             d += diff * diff;
         }
