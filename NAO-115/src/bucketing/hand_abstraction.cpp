@@ -161,6 +161,7 @@ inline float computeEHS(float handStrength, float Ppot, float Npot) {
     return winNow + improve - deteriorate;
 }
 
+/*
 FlopFeatures calculateFlopFeaturesTwoAhead(
     const std::array<int, 2>& hand,
     const std::array<int, 3>& board)
@@ -280,7 +281,6 @@ FlopFeatures calculateFlopFeaturesTwoAhead(
         Npot = (HP[0][2] + HP[0][1]/2.f + HP[1][2]/2.f) / (NpotDenominator * remainingCombinations);
     }
     
-    // compute EHS and asymmetry from HS, Ppot and Npot
     float EHS = computeEHS(handStrength, Ppot, Npot);
     float asymmetry = computeAsymmetry(handStrength, Ppot, Npot);
 
@@ -310,7 +310,6 @@ FlopFeatures calculateFlopFeaturesTwoAhead(
 
     float volatility = sqrtf(variance);
     
-    float nutPotential = 0.f;
     // calibration console log
     std::cout << "\n--- FLOP TEST CALIBRATION ---" << std::endl;
     std::cout << "Hand: [" << hand[0] << "," << hand[1] << "] Board: [" << board[0] << "," << board[1] << "," << board[2] << "]" << std::endl;
@@ -322,34 +321,235 @@ FlopFeatures calculateFlopFeaturesTwoAhead(
     std::cout << "Volatility: " << volatility << "f" << std::endl;
     std::cout << "-----------------------------\n" << std::endl;
 
-    return FlopFeatures{ EHS, asymmetry, volatility, nutPotential };
+    return FlopFeatures{ EHS, asymmetry, volatility };
+}
+
+ */
+
+// version with exclusivity calculation
+FlopFeatures calculateFlopFeaturesTwoAhead(const std::array<int, 2>& hand, const std::array<int, 3>& board) {
+    // call environment initializer helper
+    auto context = createFlopContext(hand, board);
+
+    int heroEval[52][52] = {};
+    
+    // pre-compute hero ranks on possible boards
+    precomputeHero7(
+        context.deckMask,
+        context.h0, context.h1,
+        context.b0, context.b1, context.b2,
+        heroEval
+    );
+
+    // EHS / potential computation value set
+    float betterThan = 0.f; // opponent hand is weaker
+    float worseThan  = 0.f; // opponent hand is stronger
+    float equal      = 0.f; // tie
+
+    // initializing hand potential helper arrays for EHS calculation
+    float HP[3][3]              = {};
+    float handPotentialTotal[3] = {};
+
+    // per-runout counters for volatility
+    int   hsWin[52][52]         = {};
+    int   hsTie[52][52]         = {};
+    int   hsTotal[52][52]       = {};
+
+    // initialize available cards mask to keep track of looping through villain cards
+    uint64_t villainMask = context.deckMask;
+    while (villainMask) {
+        int villainIndex1 = __builtin_ctzll(villainMask);
+        int villainCard1 = deck[villainIndex1];
+        villainMask &= (villainMask - 1);
+
+        uint64_t villainMask2 = villainMask;
+        while (villainMask2) {
+            int villainIndex2 = __builtin_ctzll(villainMask2);
+            int villainCard2 = deck[villainIndex2];
+            villainMask2 &= (villainMask2 - 1);
+
+            // evaluate 5-card villain score with the given cards
+            int villainScore = eval_5(context.b0, context.b1, context.b2, villainCard1, villainCard2);
+
+            int flopState;
+            if (context.selfRank < villainScore) {
+                worseThan += 1.f;
+                flopState = BEHIND;
+            } else if (context.selfRank > villainScore) {
+                betterThan += 1.f;
+                flopState = AHEAD;
+            } else {
+                equal += 1.f;
+                flopState = TIED;
+            }
+
+            handPotentialTotal[flopState] += 1.f;
+
+            // mask with available cards for drawing turn
+            uint64_t turnMask = context.deckMask;
+            // remove villain cards from turn mask
+            turnMask &= ~(1ULL << villainIndex1);
+            turnMask &= ~(1ULL << villainIndex2);
+
+            // loop through available cards of deck to get turn and river cards
+            while (turnMask) {
+                int turnCardIndex = __builtin_ctzll(turnMask);
+                int turnCard = deck[turnCardIndex];
+                turnMask &= (turnMask - 1);
+
+                uint64_t riverMask = turnMask;
+                while (riverMask) {
+                    int riverCardIndex = __builtin_ctzll(riverMask);
+                    int riverCard = deck[riverCardIndex];
+                    riverMask &= (riverMask - 1);
+                    
+                    int selfBest = heroEval[turnCardIndex][riverCardIndex];
+                    
+                    int villainBest = eval_7(villainCard1, villainCard2, context.b0, context.b1, context.b2, turnCard, riverCard);
+
+                    int finalState;
+                    if (selfBest < villainBest) {
+                        finalState = BEHIND;
+                    } else if (selfBest > villainBest) {
+                        finalState = AHEAD;
+                        hsWin[turnCardIndex][riverCardIndex]++;
+                    } else {
+                        finalState = TIED;
+                        hsTie[turnCardIndex][riverCardIndex]++;
+                    }
+
+                    hsTotal[turnCardIndex][riverCardIndex]++;
+                    HP[flopState][finalState] += 1.f;
+                }
+            }
+        }
+    }
+
+    // compute Effective Hand Strength
+    float handStrength =
+        (betterThan + 0.5f * equal) /
+        (betterThan + worseThan + equal);
+
+    float PpotDenominator = handPotentialTotal[BEHIND] + handPotentialTotal[TIED];
+    float NpotDenominator = handPotentialTotal[AHEAD]  + handPotentialTotal[TIED];
+
+    constexpr float remainingCombos = 990.f;
+    float Ppot = 0.f;
+    float Npot = 0.f;
+
+    if (PpotDenominator > 0.f) {
+        Ppot = (HP[BEHIND][AHEAD] +
+                HP[BEHIND][TIED] * 0.5f +
+                HP[TIED][AHEAD]  * 0.5f) /
+        (PpotDenominator * remainingCombos);
+    }
+
+    if (NpotDenominator > 0.f) {
+        Npot = (HP[AHEAD][BEHIND] +
+                HP[AHEAD][TIED]   * 0.5f +
+                HP[TIED][BEHIND]  * 0.5f) /
+        (NpotDenominator * remainingCombos);
+    }
+
+    float EHS = computeEHS(handStrength, Ppot, Npot);
+    // compute asymmetry with EHS variables
+    float asymmetry = computeAsymmetry(handStrength, Ppot, Npot);
+
+    // compute 2-card flop volatility
+    std::vector<float> hsTR;
+    hsTR.reserve(52 * 52);
+
+    for (int t = 0; t < 52; t++) {
+        for (int r = 0; r < 52; r++) {
+            if (hsTotal[t][r] > 0) {
+                hsTR.push_back((hsWin[t][r] + 0.5f * hsTie[t][r]) / hsTotal[t][r]);
+            }
+        }
+    }
+
+    float mean = 0.f;
+    for (float v : hsTR) {
+        mean += v;
+    }
+    mean /= hsTR.size();
+
+    float variance = 0.f;
+    for (float v : hsTR) {
+        float d = v - mean;
+        variance += d * d;
+    }
+    variance /= hsTR.size();
+
+    float volatility = sqrtf(variance);
+
+    // compute exclusivity
+    float heroUpside   = 0.f;
+    float heroDownside = 0.f;
+
+    for (int t = 0; t < 52; ++t) {
+        for (int r = 0; r < 52; ++r) {
+            if (hsTotal[t][r] > 0) {
+
+                float eq_tr = (hsWin[t][r] + 0.5f * hsTie[t][r]) / hsTotal[t][r];
+
+                float delta = eq_tr - handStrength;
+
+                float decisiveness = fabsf(eq_tr - 0.5f) * 2.f;
+
+                if (delta > 0.f) {
+                    heroUpside += delta * decisiveness;
+                } else {
+                    heroDownside += (-delta) * decisiveness;
+                }
+            }
+        }
+    }
+    
+    float exclusivity = heroUpside / (heroUpside + heroDownside + 1e-6f);
+    
+    // calibration console log
+    std::cout << "\n--- FLOP TEST CALIBRATION ---" << std::endl;
+    std::cout << "Hand: [" << hand[0] << "," << hand[1] << "] Board: [" << board[0] << "," << board[1] << "," << board[2] << "," << board[3] << "]" << std::endl;
+    std::cout << "HS:         " << handStrength << "f" << std::endl;
+    std::cout << "Ppot:       " << Ppot << "f" << std::endl;
+    std::cout << "Npot:       " << Npot << "f" << std::endl;
+    std::cout << "EHS:        " << EHS << "f" << std::endl;
+    std::cout << "Asymmetry:  " << asymmetry << "f" << std::endl;
+    std::cout << "Volatility: " << volatility << "f" << std::endl;
+    std::cout << "Hero Upside: " << heroUpside << "f" << std::endl;
+    std::cout << "Hero Downside: " << heroDownside << "f" << std::endl;
+    std::cout << "Exclusivity: " << exclusivity << "f" << std::endl;
+    std::cout << "-----------------------------\n" << std::endl;
+
+    return FlopFeatures{ EHS, asymmetry, volatility, exclusivity };
 }
 
 // function to calculate strength variables for turn
-TurnFeatures calculateTurnFeatures(const std::array<int, 2>& hand,
-                           const std::array<int, 4>& board) {
+TurnFeatures calculateTurnFeatures(const std::array<int, 2>& hand, const std::array<int, 4>& board) {
     
     // call environment initializer helper
     auto context = createTurnContext(hand, board);
 
+    // we pre-calculate hero ranks on possible river cards
     int heroRiverEvals[52] = {};
     uint64_t preRiverMask = context.deckMask;
     
-    // we pre-calculate the hand strength against all river card options
     while(preRiverMask) {
         int cardIndex = __builtin_ctzll(preRiverMask);
         preRiverMask &= (preRiverMask - 1);
         heroRiverEvals[cardIndex] = eval_7(context.h0, context.h1, context.b0, context.b1, context.b2, context.b3, deck[cardIndex]);
     }
     
+    // EHS / potential computation value set
     float betterThan = 0.f;
     float worseThan = 0.f;
     float equal = 0.f;
     
+    // initializing hand potential helper arrays for EHS calculation
     float HP[3][3] = {};
     float handPotentialTotal[3] = {};
     
-    // volatility accumulators (HS on river)
+    // per-runout counters for volatility
     int hsWin[52] = {};
     int hsTie[52] = {};
     int hsTotal[52] = {};
@@ -431,13 +631,12 @@ TurnFeatures calculateTurnFeatures(const std::array<int, 2>& hand,
     const float remainingRiverCards = 44.0f;
 
     // compute potentials if denominators are non-zero
-    
     if (PpotDenominator > 0.f) {
-        Ppot = (HP[2][0] + HP[2][1]/2.f + HP[1][0]/2.f) / (PpotDenominator * remainingRiverCards);
+        Ppot = (HP[BEHIND][AHEAD] + HP[BEHIND][TIED]/2.f + HP[TIED][AHEAD]/2.f) / (PpotDenominator * remainingRiverCards);
     }
 
     if (NpotDenominator > 0.f) {
-        Npot = (HP[0][2] + HP[0][1]/2.f + HP[1][2]/2.f) / (NpotDenominator * remainingRiverCards);
+        Npot = (HP[AHEAD][BEHIND] + HP[AHEAD][TIED]/2.f + HP[TIED][BEHIND]/2.f) / (NpotDenominator * remainingRiverCards);
     }
     
     // compute EHS and asymmetry from HS, Ppot and Npot
@@ -469,6 +668,28 @@ TurnFeatures calculateTurnFeatures(const std::array<int, 2>& hand,
     
     variance /= hsCount;
     float volatility = sqrtf(variance);
+    
+    // compute exclusivity
+    float heroUpside   = 0.f;
+    float heroDownside = 0.f;
+
+    for (int r = 0; r < 52; ++r) {
+        if (hsTotal[r] > 0) {
+            
+            float eq_tr = (hsWin[r] + 0.5f * hsTie[r]) / hsTotal[r];
+
+            float delta = eq_tr - handStrength;
+
+            float decisiveness = fabsf(eq_tr - 0.5f) * 2.f;
+            if (delta > 0.f) {
+                heroUpside += delta * decisiveness;
+            } else {
+                heroDownside += (-delta) * decisiveness;
+            }
+        }
+    }
+    
+    float exclusivity = heroUpside / (heroUpside + heroDownside + 1e-6f);
 
     // calibration console log
     std::cout << "\n--- TURN TEST CALIBRATION ---" << std::endl;
@@ -479,9 +700,12 @@ TurnFeatures calculateTurnFeatures(const std::array<int, 2>& hand,
     std::cout << "EHS:        " << EHS << "f" << std::endl;
     std::cout << "Asymmetry:  " << asymmetry << "f" << std::endl;
     std::cout << "Volatility: " << volatility << "f" << std::endl;
+    std::cout << "Hero Upside: " << heroUpside << "f" << std::endl;
+    std::cout << "Hero Downside: " << heroDownside << "f" << std::endl;
+    std::cout << "Exclusivity: " << exclusivity << "f" << std::endl;
     std::cout << "-----------------------------\n" << std::endl;
     
-    return TurnFeatures{ EHS, asymmetry, volatility, equityUnderPressure };
+    return TurnFeatures{ EHS, asymmetry, volatility, exclusivity };
 }
 
 RiverFeatures calculateRiverFeatures(const std::array<int, 2>& hand,
@@ -624,14 +848,12 @@ RiverFeatures calculateRiverFeatures(const std::array<int, 2>& hand,
         if (!n) {
             continue;
         }
-
         // total equity
         if (selfRank > score) {
             winAll += n;
         } else if (selfRank == score) {
             tieAll += n;
         }
-
         // top 15% region
         if (score >= topCut) {
             topCombos += n;
@@ -664,12 +886,7 @@ RiverFeatures calculateRiverFeatures(const std::array<int, 2>& hand,
     float equityTop   = topCombos ? (winTop + 0.5f * tieTop) / topCombos : 0.f;
     float equityMid   = midCombos ? (winMid + 0.5f * tieMid) / midCombos : 0.f;
     
-    return RiverFeatures {
-        equityTotal,
-        equityTop,
-        equityMid,
-        blockerIndex
-    };
+    return RiverFeatures { equityTotal, equityTop, equityMid, blockerIndex };
 }
 
 }
