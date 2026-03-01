@@ -1,36 +1,48 @@
 #pragma once
-#include "core/action.hpp"
-#include "core/state.hpp"
+
 #include <vector>
+#include <cstdint>
+#include "cfr/mccfr_state.hpp"
 
-namespace BetMaths {
 
-struct AbstractionContext {
-    Game::Street street;
-    
-    int pot;                 // total pot before hero action
-    
-    int heroStreetBet;       // hero chips committed on this street
-    int villainStreetBet;    // villain chips committed on this street
-    int streetLastBetTo;     // max(heroStreetBet, villainStreetBet)
-    
-    int heroStack;
-    int villainStack;
-    int effectiveStack;
-    
-    int raiseCount;          // raises so far on this street
-    bool facingBet;          // villainStreetBet > heroStreetBet
-    
-    int bigBlind;            // preflop only
-    
-    int previousRaiseTotal;  // last raise-to amount (street)
-    int betBeforeRaise;      // street bet before last raise
-};
+/*
+Given an MCCFRState, returns the list of legal abstract actions at this node.
+- called at every single node during MCCFR traversal — it is on the
+- hottest code path in the simulation, speed matters a lot here
+ 
+Action convention:
+ 0 = fold
+ 1 = check
+ 2 = call
+ 3 = bet/raise (amount > 0)
+
+Amount convention:
+ fold/check/call: amount = 0
+ bet/raise: amount = total chips committed this street after this action (not the additional chips, the total)
+*/
+
+namespace BetAbstraction {
 
 struct AbstractAction {
-    Game::ActionType type;    // fold, call, check, bet
-    int amount;         // 0 for fold/check/call
+    uint8_t type;      // 0=fold, 1=check, 2=call, 3=bet/raise
+    int32_t amount;    // 0 for fold/check/call, total bet amount for bet/raise
 };
 
-std::vector<AbstractAction> getLegalActions(const AbstractionContext& ctx);
+/*
+Returns all legal abstract actions for the current player at this node.
+ 
+Handles:
+ - Preflop opens (2BB, 3BB, all-in)
+ - Preflop reraises (2.5x multiplier)
+ - Post-flop bets (33%, 75%, 150%, all-in)
+ - Post-flop raises (75%, 150%, all-in)
+ - Post-flop 3-bets (100%, all-in)
+ - Post-flop 4-bets (all-in only)
+ - All-in situations (fold/call only)
+ - Raise cap limiting (max raiseCount = 4)
+ - Minimum raise filtering
+ - Removal of duplicates in case of collapsed sizes
+ */
+std::vector<AbstractAction> getLegalActions(const MCCFRState& state);
+
 }

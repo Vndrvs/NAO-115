@@ -1,6 +1,6 @@
 #include "bet_maths.hpp"
 
-namespace BetMaths {
+namespace BetAbstraction {
 
 int computePostflopAmount(float fraction, int pot, int villainBet, int heroCurrentBet, int currentStack) {
     

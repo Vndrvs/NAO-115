@@ -39,8 +39,7 @@
  
  */
 
-namespace BetMaths {
-
+namespace BetAbstraction {
 /*
 Computes bet/raise amount as a fraction of the pot (valid in flop/turn/river).
 initial bets (no villain bet): pass villainBet = 0, heroCurrentBet = 0
