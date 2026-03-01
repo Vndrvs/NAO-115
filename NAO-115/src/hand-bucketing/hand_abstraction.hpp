@@ -14,19 +14,19 @@ Feature vectors for abstraction using values:
 struct FlopFeatures {
     float ehs;
     float asymmetry;
-    float volatility;
+    float nutPotential;
 };
 
 struct TurnFeatures {
     float ehs;
     float asymmetry;
-    float volatility;
+    float nutPotential;
 };
 
 struct RiverFeatures {
     float equityTotal;
-    float equityTop;
-    float equityMid;
+    float equityVsStrong;
+    float equityVsWeak;
     float blockerIndex;
 };
 

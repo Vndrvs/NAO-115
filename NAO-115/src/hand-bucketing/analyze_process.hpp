@@ -9,12 +9,11 @@ namespace Bucketer {
 // distribution
 class DataDistributionLogger {
 public:
-    static constexpr int NUM_FEATURES = 4;
 
     explicit DataDistributionLogger(const std::string& filename);
     ~DataDistributionLogger();
 
-    void logDistribution(int street, const std::vector<std::array<float, NUM_FEATURES>>& data);
+    void logDistribution(int street, const std::vector<std::vector<float>>& data);
 
 private:
     std::ofstream file_;
@@ -32,7 +31,7 @@ private:
                      const std::vector<double>& stds,
                      const std::vector<std::string>& labels);
     void logQuantiles(std::vector<std::vector<float>> features, const std::vector<std::string>& labels);
-    void logCorrelationAndPCA(const std::vector<std::array<float, NUM_FEATURES>>& data,
+    void logCorrelationAndPCA(const std::vector<std::vector<float>>& data,
                               const std::vector<double>& means,
                               const std::vector<double>& stds,
                               const std::vector<std::string>& labels);

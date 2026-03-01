@@ -29,26 +29,16 @@
 namespace Bucketer {
 
 // CONFIGURATION
-const int FLOP_BUCKETS  = 10;
-const int TURN_BUCKETS  = 20;
-const int RIVER_BUCKETS = 10;
+const int FLOP_BUCKETS  = 20;
+const int TURN_BUCKETS  = 100;
+const int RIVER_BUCKETS = 100;
 
-const int SAMPLES_FLOP  = 2000;
-const int SAMPLES_TURN  = 4000;
-const int SAMPLES_RIVER = 2000;
+const int SAMPLES_FLOP  = 200;
+const int SAMPLES_TURN  = 200000;
+const int SAMPLES_RIVER = 20000;
 
 
-/*
-const int FLOP_BUCKETS  = 800;
-const int TURN_BUCKETS  = 2000;
-const int RIVER_BUCKETS = 500;
-
-const int SAMPLES_FLOP  = 1000000;
-const int SAMPLES_TURN  = 1000000;
-const int SAMPLES_RIVER = 1000000;
- */
-
-std::vector<std::array<float,4>> centroids[3];
+std::vector<std::vector<float>> centroids[3];
 std::vector<std::array<float,2>> feature_stats[3];
 
 bool initialized = false;
@@ -123,13 +113,13 @@ std::vector<float> get_features_dynamic(
     if (board.size() == 3) {
         std::array<int, 3> board_arr = { board[0], board[1], board[2] };
         Eval::FlopFeatures f = Eval::calculateFlopFeaturesTwoAhead(hand_arr, board_arr);
-        return { f.ehs, f.asymmetry, f.volatility };
+        return { f.ehs, f.asymmetry, f.nutPotential };
     }
     
     else if (board.size() == 4) {
         std::array<int, 4> board_arr = { board[0], board[1], board[2], board[3] };
         Eval::TurnFeatures f = Eval::calculateTurnFeatures(hand_arr, board_arr);
-        return { f.ehs, f.asymmetry, f.volatility };
+        return { f.ehs, f.asymmetry, f.nutPotential };
     }
 
     return { 0, 0, 0, 0 };
@@ -176,7 +166,7 @@ void compute_stats(const std::vector<std::vector<float>>& data, std::vector<std:
 void apply_z(std::vector<std::vector<float>>& data, const std::vector<std::array<float,2>>& stats) {
     const size_t dim = data[0].size();
 
-    for (std::array<float,4>& point : data) {
+    for (auto& point : data) {
         for (size_t i = 0; i < dim; ++i) {
             if (stats[i][1] > 1e-9f) {
                 // works on means and stdev of each feature
@@ -188,7 +178,7 @@ void apply_z(std::vector<std::vector<float>>& data, const std::vector<std::array
 
 // KMEANS
 
-std::vector<std::array<float,4>> kmeans(
+std::vector<std::vector<float>> kmeans(
     const std::vector<std::vector<float>>& data,
     int k,
     const std::string& logFilename,
@@ -245,7 +235,7 @@ std::vector<std::array<float,4>> kmeans(
         for (int t = 0; t < num_threads; ++t) {
             for (int i = 0; i < k; ++i) {
                 local_counts[t][i] = 0;
-                local_sums[t][i] = {0.0, 0.0, 0.0, 0.0};
+                std::fill(local_sums[t][i].begin(), local_sums[t][i].end(), 0.0);
             }
         }
 
@@ -277,7 +267,7 @@ std::vector<std::array<float,4>> kmeans(
 
         // reset sum & count
         for (int i = 0; i < k; ++i) {
-            sum[i] = {0.f,0.f,0.f,0.f};
+            std::fill(sum[i].begin(), sum[i].end(), 0.f);
             count[i] = 0;
         }
 
@@ -430,6 +420,7 @@ void drawRiver(std::mt19937& rng, std::uniform_int_distribution<int>& dist,
 void generate_centroids() {
     omp_set_num_threads(6);
     Eval::initialize();
+    
     std::cout << "Training bucketer..." << std::endl;
     
     // file naming logic
@@ -453,7 +444,7 @@ void generate_centroids() {
         } else {
             N = SAMPLES_RIVER;
         }
-        
+                
         int dim;
         
         if (street == 2) {
@@ -466,6 +457,8 @@ void generate_centroids() {
         
         std::cout << "[1/4] Generating " << N << " samples..." << std::flush;
         
+        std::atomic<int> generated{0};
+        
         #pragma omp parallel
         {
             std::mt19937 rng(100 + get_thread_id());
@@ -477,20 +470,31 @@ void generate_centroids() {
                     std::array<int,2> hand; std::array<int,3> board;
                     drawFlop(rng, dist, hand, board);
                     Eval::FlopFeatures f = Eval::calculateFlopFeaturesTwoAhead(hand, board);
-                    data[i] = { f.ehs, f.asymmetry, f.volatility };
+                    data[i] = { f.ehs, f.asymmetry, f.nutPotential };
                 } else if (street == 1) {
                     std::array<int,2> hand; std::array<int,4> board;
                     drawTurn(rng, dist, hand, board);
                     Eval::TurnFeatures f = Eval::calculateTurnFeatures(hand, board);
-                    data[i] = { f.ehs, f.asymmetry, f.volatility };
+                    data[i] = { f.ehs, f.asymmetry, f.nutPotential };
                 } else {
                     std::array<int,2> hand; std::array<int,5> board;
                     drawRiver(rng, dist, hand, board);
                     Eval::RiverFeatures f = Eval::calculateRiverFeatures(hand, board);
-                    data[i] = { f.equityTotal, f.equityTop, f.equityMid, f.blockerIndex };
+                    data[i] = { f.equityTotal, f.equityVsStrong, f.equityVsWeak, f.blockerIndex };
                 }
+                
+                int cur = ++generated;
+                        if (cur % 5000 == 0) {
+                            #pragma omp critical
+                            {
+                                std::cout << "\r    generated "
+                                          << cur << " / " << N << std::flush;
+                            }
+                        }
             }
         }
+        std::cout << "\r    generated " << N << " / " << N << std::endl;
+        
         std::cout << "[2/4] Logging Distribution..." << std::flush;
         distributionLogger.logDistribution(street, data);
         std::cout << " Done." << std::endl;
@@ -514,7 +518,7 @@ void generate_centroids() {
         }
         
         std::cout << "[4/4] Running K-Means (k=" << k << ")..." << std::endl;
-        centroids[street] = kmeans(data, k, kmeansLogName);
+        centroids[street] = kmeans(data, k, kmeansLogName, 100);
         std::cout << ">>> Street " << street << " Complete." << std::endl;
     }
 
@@ -525,7 +529,7 @@ void generate_centroids() {
     } else {
         for(int street = 0; street < 3; street++){
             int numCentroids = static_cast<int>(centroids[street].size());
-            int numFeatures = dim;
+            int numFeatures = centroids[street].empty() ? 0 : static_cast<int>(centroids[street][0].size());
             
             out.write((char*)&numCentroids, sizeof(int));
             out.write((char*)&numFeatures, sizeof(int));
@@ -588,7 +592,7 @@ std::vector<float> get_features_river_runtime(const std::vector<int>& hand, cons
     std::array<int, 5> b = { board[0], board[1], board[2], board[3], board[4] };
 
     Eval::RiverFeatures f = Eval::calculateRiverFeatures(h, b);
-    return { f.equityTotal, f.equityTop, f.equityMid, f.blockerIndex };
+    return { f.equityTotal, f.equityVsStrong, f.equityVsWeak, f.blockerIndex };
 }
 
 int get_bucket(const std::vector<int>& h, const std::vector<int>& b) {
@@ -610,7 +614,7 @@ int get_bucket(const std::vector<int>& h, const std::vector<int>& b) {
 
     std::vector<float> f_norm = f_vec;
 
-    int dim = centroids[st][0].size();
+    int dim = static_cast<int>(centroids[st][0].size());
     
     for(int i=0; i < dim; i++){
         float m = feature_stats[st][i][0];

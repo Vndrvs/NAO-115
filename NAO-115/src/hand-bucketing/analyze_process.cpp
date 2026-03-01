@@ -100,10 +100,12 @@ void DataDistributionLogger::logMoments(const std::vector<std::vector<float>>& f
     file_ << "1.1 Moments & Shape\n";
     file_ << "Feature, Mean, StdDev, Skew, Kurtosis\n";
     
-    means.resize(NUM_FEATURES);
-    stds.resize(NUM_FEATURES);
+    size_t num_features = features.size();
     
-    for (int f = 0; f < NUM_FEATURES; ++f) {
+    means.resize(num_features);
+    stds.resize(num_features);
+    
+    for (size_t f = 0; f < num_features; ++f) {
         // calculate mean & variance through external helper
         std::pair<float, float> moments = calculateMeanVariance(features[f]);
         means[f] = moments.first;
@@ -114,7 +116,7 @@ void DataDistributionLogger::logMoments(const std::vector<std::vector<float>>& f
         // calculate higher moments for skew and kurtosis
         double m3_sum = 0.0;
         double m4_sum = 0.0;
-        int N = features[f].size();
+        int N = static_cast<int>(features[f].size());
         
         for (float value : features[f]) {
             double deviation = value - means[f];
@@ -151,6 +153,7 @@ void DataDistributionLogger::logOutliers(const std::vector<std::vector<float>>& 
     file_ << "1.2 Extreme Values & Histograms (Statistical Analysis)\n";
     
     size_t N = features[0].size();
+    size_t num_features = features.size();
     
     // calculate Rice's rule for binning (formula: k = 2 * N^(1/3))
     int rice_count = static_cast<int>(2.0 * std::pow(N, 1.0/3.0));
@@ -159,8 +162,7 @@ void DataDistributionLogger::logOutliers(const std::vector<std::vector<float>>& 
     file_ << "  * Visual Bins: 50 (Fixed 2% resolution for readability)\n";
     file_ << "  * Rice's Rule: " << rice_count << " (Optimal for N = " << N << ")\n\n";
     
-    for (int f = 0; f < NUM_FEATURES; ++f) {
-        // statistics for this feature
+    for (size_t f = 0; f < num_features; ++f) {
         float min_v = *std::min_element(features[f].begin(), features[f].end());
         float max_v = *std::max_element(features[f].begin(), features[f].end());
         float range = (max_v - min_v > 1e-9) ? (max_v - min_v) : 1.0f;
@@ -169,11 +171,9 @@ void DataDistributionLogger::logOutliers(const std::vector<std::vector<float>>& 
         float mid_high;
         
         if (labels[f] == "Asymmetry") {
-            // strategic "middle" for Asymmetry is balanced potential (0.0)
             mid_low = -0.1f;
             mid_high = 0.1f;
         } else {
-            // strategic "middle" for Equity/Volatility is 0.5
             mid_low = 0.45f;
             mid_high = 0.55f;
         }
@@ -247,8 +247,9 @@ void DataDistributionLogger::logQuantiles(std::vector<std::vector<float>> featur
     file_ << "Feature, Min, P1, P5, P25, Median, P75, P95, P99, Max\n";
     
     size_t N = features[0].size();
+    size_t num_features = features.size();
     
-    for (int f = 0; f < NUM_FEATURES; ++f) {
+    for (size_t f = 0; f < num_features; ++f) {
         // sort the feature data locally
         std::sort(features[f].begin(), features[f].end());
         
@@ -271,7 +272,7 @@ void DataDistributionLogger::logQuantiles(std::vector<std::vector<float>> featur
     file_ << "\n";
 }
 
-void DataDistributionLogger::logCorrelationAndPCA(const std::vector<std::array<float, 4>>& data,
+void DataDistributionLogger::logCorrelationAndPCA(const std::vector<std::vector<float>>& data,
                           const std::vector<double>& means,
                           const std::vector<double>& stds,
                           const std::vector<std::string>& labels)
@@ -279,7 +280,7 @@ void DataDistributionLogger::logCorrelationAndPCA(const std::vector<std::array<f
     
     file_ << "1.4 Correlation & PCA\n";
     size_t N = data.size();
-    int n = 4;
+    int n = static_cast<int>(data[0].size());
     
     // verify label name input correctness
     if (labels.size() != static_cast<size_t>(n)) {
@@ -288,7 +289,7 @@ void DataDistributionLogger::logCorrelationAndPCA(const std::vector<std::array<f
     }
     
     // compute covariance matrix
-    double cov[4][4] = {0};
+    std::vector<std::vector<double>> cov(n, std::vector<double>(n, 0.0));
     
     // accumulate sums of products
     for (size_t i = 0; i < N; i++) {
@@ -387,8 +388,10 @@ void DataDistributionLogger::logCorrelationAndPCA(const std::vector<std::array<f
     file_.flush();
 }
 
-void DataDistributionLogger::logDistribution(int street, const std::vector<std::array<float, 4>>& data) {
+void DataDistributionLogger::logDistribution(int street, const std::vector<std::vector<float>>& data) {
     if (!file_.is_open()) return;
+    
+    int NUM_FEATURES = static_cast<int>(data[0].size());
     
     file_ << ">>> Data Distribution: Street " << street << " <<<\n";
     file_ << "Sample size: " << data.size() << " samples\n\n";
@@ -403,12 +406,10 @@ void DataDistributionLogger::logDistribution(int street, const std::vector<std::
     std::vector<double> shared_means;
     std::vector<double> shared_stds;
     std::vector<std::string> currentLabels;
-    if (street == 0 || street == 1) {
-    // Flop and Turn 4D Vector
-        currentLabels = {"Hand Strength", "EHS", "Asymmetry", "Volatility"};
+    if (street == 0 || street == 1 ) {
+        currentLabels = {"EHS", "Asymmetry", "Nut Potential"};
     } else {
-        // River 4D Vector
-        currentLabels = {"EquityTotal", "EquityTop", "EquityMid", "BlockerIndex"};
+        currentLabels = {"EquityTotal", "EquityVsStrong", "EquityVsWeak", "BlockerIndex"};
     }
     
     // run loggers
