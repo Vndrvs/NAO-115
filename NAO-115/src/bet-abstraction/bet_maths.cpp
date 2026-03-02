@@ -8,7 +8,7 @@ int computePostflopAmount(float fraction, int pot, int villainBet, int heroCurre
     // simulate calling the villain bet first, then compute the pot
     // handles any errors if heroCurrentBet is accidentally bigger than villainBet
     int callAmount = std::max(0, villainBet - heroCurrentBet);
-    int potAfterCall = pot + callAmount;
+    int potAfterCall = pot + villainBet + callAmount;
 
     // fraction of the pot after calling
     // raiseAmount is the additional chips beyond a call
