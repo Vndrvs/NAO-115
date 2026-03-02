@@ -169,9 +169,9 @@ struct MCCFRState {
     /*
     The effective stack — the smaller of the two stacks.
      No bet can exceed this amount since the opponent can't call more than they have.
-     All-in = betting exactly currentStack chips.
+     All-in = betting exactly effectiveStack chips.
     */
-    int32_t currentStack() const { return std::min(heroStack, villainStack); }
+    int32_t effectiveStack() const { return std::min(heroStack, villainStack); }
     
     /*
     True if we are in the preflop street.
