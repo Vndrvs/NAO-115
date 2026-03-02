@@ -57,6 +57,9 @@ std::vector<AbstractAction> getLegalActions(const MCCFRState& state) {
     
     // get the current stack size of the player
     const int effectiveStack = state.effectiveStack();
+    
+    const int effectiveAllIn = state.effectiveAllIn();
+
     // get total pot for this game so far
     const int totalPot = state.potBase;
     
@@ -84,12 +87,12 @@ std::vector<AbstractAction> getLegalActions(const MCCFRState& state) {
                     amounts.push_back(computePreflopOpen(
                         PREFLOP_OPEN_SIZES[i], state.bigBlind, effectiveStack));
                 }
-                amounts = filterAndDeduplicate(amounts, 1, effectiveStack);
+                amounts = filterAndDeduplicate(amounts, 1, effectiveAllIn);
                 for (int amount : amounts) {
                     actions.push_back({ 3, amount });
                 }
             } else {
-                actions.push_back({ 3, effectiveStack });
+                actions.push_back({ 3, effectiveAllIn });
             }
         } else {
         // we are facing a bet
@@ -105,13 +108,13 @@ std::vector<AbstractAction> getLegalActions(const MCCFRState& state) {
                         amounts.push_back(computePreflopOpen(
                             PREFLOP_OPEN_SIZES[i], state.bigBlind, effectiveStack));
                     }
-                    amounts = filterAndDeduplicate(amounts, 1, effectiveStack);
+                    amounts = filterAndDeduplicate(amounts, 1, effectiveAllIn);
                 } else {
                     // facing actual raise — use 2.5x
                     amounts.push_back(computePreflopReraise(
                         PREFLOP_RERAISE_MULTIPLIER, state.previousRaiseTotal, effectiveStack));
                     int minRaise = computeMinRaise(state.previousRaiseTotal, state.betBeforeRaise);
-                    amounts = filterAndDeduplicate(amounts, minRaise, effectiveStack);
+                    amounts = filterAndDeduplicate(amounts, minRaise, effectiveAllIn);
                 }
 
                 for (int amount : amounts) {
@@ -119,7 +122,7 @@ std::vector<AbstractAction> getLegalActions(const MCCFRState& state) {
                 }
             // we reached the max raise limit (only all-in remains)
             } else {
-                actions.push_back({ 3, effectiveStack }); // raise, all-in
+                actions.push_back({ 3, effectiveAllIn }); // raise, all-in
             }
             
         }
@@ -138,14 +141,14 @@ std::vector<AbstractAction> getLegalActions(const MCCFRState& state) {
                 amounts.push_back(amount);
             }
             // opening bet: minimum is 1 chip
-            amounts = filterAndDeduplicate(amounts, 1, effectiveStack);
+            amounts = filterAndDeduplicate(amounts, 1, effectiveAllIn);
 
             for (int amount : amounts) {
                 actions.push_back({ 3, amount }); // bet
             }
         } else {
             // raise cap — all-in only
-            actions.push_back({ 3, effectiveStack });
+            actions.push_back({ 3, effectiveAllIn });
         }
     } else {
         // facing a bet - fold, call, raise or possible
@@ -159,7 +162,7 @@ std::vector<AbstractAction> getLegalActions(const MCCFRState& state) {
 
         if (state.raiseCount >= 3) {
             // abstract 4-bet: all-in only
-            actions.push_back({ 3, effectiveStack });
+            actions.push_back({ 3, effectiveAllIn });
             return actions;
         }
 
@@ -187,7 +190,7 @@ std::vector<AbstractAction> getLegalActions(const MCCFRState& state) {
         }
             
         int minRaise = computeMinRaise(state.previousRaiseTotal, state.betBeforeRaise);
-        amounts = filterAndDeduplicate(amounts, minRaise, effectiveStack);
+        amounts = filterAndDeduplicate(amounts, minRaise, effectiveAllIn);
             
         for (int amount : amounts) {
             actions.push_back({ 3, amount }); // raise with valid amounts

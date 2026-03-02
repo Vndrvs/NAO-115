@@ -48,14 +48,6 @@ struct MCCFRState {
     uint8_t currentPlayer;
     
     /*
-    Whether the current player is facing a bet to be responded to.
-     Derived condition: villainStreetBet > heroStreetBet
-     When true: legal actions are fold / call / raise
-     When false: legal actions are check / bet
-    */
-    bool facingBet;
-    
-    /*
     True if the hand is over and no more actions can be taken.
      True when:
      - A player folds
@@ -184,14 +176,14 @@ struct MCCFRState {
     /*
     True if the hero is all-in (no chips remaining).
     */
-    bool heroAllIn() const {
+    bool heroIsAllIn() const {
         return heroStack == 0;
     }
 
     /*
     True if the villain is all-in (no chips remaining).
     */
-    bool villainAllIn() const {
+    bool villainIsAllIn() const {
         return villainStack == 0;
     }
     
@@ -202,4 +194,17 @@ struct MCCFRState {
     bool anyAllIn() const {
         return heroStack == 0 || villainStack == 0;
     }
+    
+    int32_t heroAllIn() const {
+        return heroStack + heroStreetBet;
+    }
+    
+    int32_t villainAllIn() const {
+        return villainStack + villainStreetBet;
+    }
+    
+    int32_t effectiveAllIn() const {
+        return std::min(heroAllIn(), villainAllIn());
+    }
+    
 };
