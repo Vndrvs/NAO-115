@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
-#include "hand-bucketing/bucketer.hpp"
-#include "hand-bucketing/hand_abstraction.hpp"
+#include "bucketing/bucketer.hpp"
+#include "bucketing/hand_abstraction.hpp"
 #include "eval/evaluator.hpp"
 #include "eval/tables.hpp"
 #include <cmath>
@@ -9,9 +9,9 @@
 #include <fstream>
 #include <iostream>
 
-using namespace Bucketer;
+using namespace BetAbstraction;
 
-class BucketerTest : public ::testing::Test {
+class BetAbstractionTest : public ::testing::Test {
 protected:
     void SetUp() override {
         Eval::initialize();

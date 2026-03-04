@@ -73,9 +73,14 @@ add_test(NAME NaoTests COMMAND nao_tests)
 # Bucketer Tests
 add_executable(bucketer_tests "NAO-115_Tests/bucketer/test_bucketer.cpp")
 target_link_libraries(bucketer_tests PRIVATE nao_core GTest::gtest_main)
-add_test(NAME BucketerTests COMMAND bucketer_tests)
+add_test(NAME BucketerTests COMMAND bucketser_tests)
 
 # Evaluator Tests
 add_executable(evaluator_tests "NAO-115_Tests/evaluator/test_evaluator.cpp")
 target_link_libraries(evaluator_tests PRIVATE nao_core GTest::gtest_main)
 add_test(NAME EvaluatorTests COMMAND evaluator_tests)
+
+# Bet Abstraction Tests
+add_executable(bet_abstraction_tests "NAO-115_Tests/bet-abstraction/test_bet_abstraction.cpp")
+target_link_libraries(bet_abstraction_tests PRIVATE nao_core GTest::gtest_main)
+add_test(NAME BetAbstractionTests COMMAND bet_abstraction_tests)
