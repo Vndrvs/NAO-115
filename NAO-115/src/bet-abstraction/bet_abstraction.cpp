@@ -54,12 +54,13 @@ static const int MAX_RAISES = 4;
 std::vector<AbstractAction> getLegalActions(const MCCFRState& state) {
     std::vector<AbstractAction> actions;
     actions.reserve(7); // max possible actions at any node
+    // fold - call - raise (3 sizes postflop) - reraise - reraise - all-in
     
     // get the current stack size of the player
     const int effectiveStack = state.effectiveStack();
     
     const int effectiveAllIn = state.effectiveAllIn();
-
+    
     // get total pot for this game so far
     const int totalPot = state.potBase;
     
@@ -80,14 +81,25 @@ std::vector<AbstractAction> getLegalActions(const MCCFRState& state) {
         // no bet faced
         if (toCall == 0) {
             actions.push_back({ 1, 0 }); // check
-
+            
             if (state.raiseCount < MAX_RAISES) {
                 std::vector<int> amounts;
-                for (int i = 0; i < PREFLOP_OPEN_COUNT; i++) {
-                    amounts.push_back(computePreflopOpen(
-                        PREFLOP_OPEN_SIZES[i], state.bigBlind, effectiveStack));
+                
+                if (state.raiseCount == 0) {
+                    // BB option after limp — use open sizes
+                    for (int i = 0; i < PREFLOP_OPEN_COUNT; i++) {
+                        amounts.push_back(computePreflopOpen(
+                                                             PREFLOP_OPEN_SIZES[i], state.bigBlind, effectiveStack));
+                    }
+                    amounts = filterAndDeduplicate(amounts, 1, effectiveAllIn);
+                } else {
+                    // re-raise after both players equalized — use 2.5x
+                    amounts.push_back(computePreflopReraise(
+                                                            PREFLOP_RERAISE_MULTIPLIER, state.previousRaiseTotal, effectiveStack));
+                    int minRaise = computeMinRaise(state.previousRaiseTotal, state.betBeforeRaise);
+                    amounts = filterAndDeduplicate(amounts, minRaise, effectiveAllIn);
                 }
-                amounts = filterAndDeduplicate(amounts, 1, effectiveAllIn);
+                
                 for (int amount : amounts) {
                     actions.push_back({ 3, amount });
                 }
@@ -95,32 +107,32 @@ std::vector<AbstractAction> getLegalActions(const MCCFRState& state) {
                 actions.push_back({ 3, effectiveAllIn });
             }
         } else {
-        // we are facing a bet
+            // we are facing a bet
             actions.push_back({ 0, 0 }); // fold
             actions.push_back({ 2, 0 }); // call
             
             if (state.raiseCount < MAX_RAISES) {
                 std::vector<int> amounts;
-
+                
                 if (state.raiseCount == 0) {
                     // SB first action, BB is live bet — use open sizes
                     for (int i = 0; i < PREFLOP_OPEN_COUNT; i++) {
                         amounts.push_back(computePreflopOpen(
-                            PREFLOP_OPEN_SIZES[i], state.bigBlind, effectiveStack));
+                                                             PREFLOP_OPEN_SIZES[i], state.bigBlind, effectiveStack));
                     }
                     amounts = filterAndDeduplicate(amounts, 1, effectiveAllIn);
                 } else {
                     // facing actual raise — use 2.5x
                     amounts.push_back(computePreflopReraise(
-                        PREFLOP_RERAISE_MULTIPLIER, state.previousRaiseTotal, effectiveStack));
+                                                            PREFLOP_RERAISE_MULTIPLIER, state.previousRaiseTotal, effectiveStack));
                     int minRaise = computeMinRaise(state.previousRaiseTotal, state.betBeforeRaise);
                     amounts = filterAndDeduplicate(amounts, minRaise, effectiveAllIn);
                 }
-
+                
                 for (int amount : amounts) {
                     actions.push_back({ 3, amount });
                 }
-            // we reached the max raise limit (only all-in remains)
+                // we reached the max raise limit (only all-in remains)
             } else {
                 actions.push_back({ 3, effectiveAllIn }); // raise, all-in
             }
@@ -135,14 +147,14 @@ std::vector<AbstractAction> getLegalActions(const MCCFRState& state) {
         actions.push_back({ 1, 0 }); // check, amount 0
         if (state.raiseCount < MAX_RAISES) {
             std::vector<int> amounts;
-
+            
             for (int i = 0; i < POSTFLOP_BET_COUNT; i++) {
                 int amount = computePostflopAmount(POSTFLOP_BET_SIZES[i], totalPot, 0, 0, effectiveStack);
                 amounts.push_back(amount);
             }
             // opening bet: minimum is 1 chip
             amounts = filterAndDeduplicate(amounts, 1, effectiveAllIn);
-
+            
             for (int amount : amounts) {
                 actions.push_back({ 3, amount }); // bet
             }
@@ -159,13 +171,13 @@ std::vector<AbstractAction> getLegalActions(const MCCFRState& state) {
             // raise cap hit — no more raises allowed
             return actions;
         }
-
+        
         if (state.raiseCount >= 3) {
             // abstract 4-bet: all-in only
             actions.push_back({ 3, effectiveAllIn });
             return actions;
         }
-
+        
         const float* raiseSizes = nullptr;
         int raiseCountLocal = 0;
         
@@ -176,22 +188,22 @@ std::vector<AbstractAction> getLegalActions(const MCCFRState& state) {
             raiseSizes = POSTFLOP_3BET_SIZES;
             raiseCountLocal = POSTFLOP_3BET_COUNT;
         }
-            
+        
         std::vector<int> amounts;
         for (int i = 0; i < raiseCountLocal; i++) {
             int amount = computePostflopAmount(
-                                                raiseSizes[i],
-                                                totalPot,
-                                                state.villainStreetBet,
-                                                state.heroStreetBet,
-                                                effectiveStack
-                                                );
+                                               raiseSizes[i],
+                                               totalPot,
+                                               state.villainStreetBet,
+                                               state.heroStreetBet,
+                                               effectiveStack
+                                               );
             amounts.push_back(amount);
         }
-            
+        
         int minRaise = computeMinRaise(state.previousRaiseTotal, state.betBeforeRaise);
         amounts = filterAndDeduplicate(amounts, minRaise, effectiveAllIn);
-            
+        
         for (int amount : amounts) {
             actions.push_back({ 3, amount }); // raise with valid amounts
         }
