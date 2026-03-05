@@ -284,7 +284,6 @@ MCCFRState buildSimulationState(std::mt19937& rng) {
     
     std::uniform_int_distribution<int> randomGen(0, 1);
     bool isHeroSmallBlind = (randomGen(rng) == 0);
-    bool isThereUncalledRaise = (randomGen(rng) == 0);
     
     // preflop blind status
     if (state.street == 0) {
@@ -313,7 +312,6 @@ MCCFRState buildSimulationState(std::mt19937& rng) {
     // simulate 0-3 raises randomly
     std::uniform_int_distribution<int> numRaisesDist(0, 3);
     // range inside of which raises are randomized
-    std::uniform_real_distribution<float> fractionDist(0.3f, 1.5f);
     int numRaises = numRaisesDist(rng);
 
     // on each raise action
@@ -324,12 +322,49 @@ MCCFRState buildSimulationState(std::mt19937& rng) {
         assert(state.heroStreetBet == state.villainStreetBet && "street bets should be equal at start of each raise iteration");
         int currentMax = state.heroStreetBet; // amount of chips already contributed on this street
         int pot = state.potBase + state.heroStreetBet + state.villainStreetBet;
+        
+        int totalBet;
+        
+        // pick random raise size according to our rules
+        if (state.street == 0) {
+            if (state.raiseCount == 0) {
+                // preflop open options - 2 & 3 BB
+                std::uniform_int_distribution<int> sizeDist(0, PREFLOP_OPEN_COUNT - 1);
+                totalBet = static_cast<int>(PREFLOP_OPEN_SIZES[sizeDist(rng)] * state.bigBlind);
+            } else {
+                // preflop can only reraise by 2.5x
+                totalBet = static_cast<int>(PREFLOP_RERAISE_MULTIPLIER * state.previousRaiseTotal);
+            }
+        } else {
+            // postflop: pick appropriate size
+            const float* sizes;
+            int count;
+            if (state.raiseCount == 0) {
+                sizes = POSTFLOP_BET_SIZES;
+                count = POSTFLOP_BET_COUNT;
+            } else if (state.raiseCount == 1) {
+                sizes = POSTFLOP_RAISE_SIZES;
+                count = POSTFLOP_RAISE_COUNT;
+            } else {
+                sizes = POSTFLOP_3BET_SIZES;
+                count = POSTFLOP_3BET_COUNT;
+            }
+            
+            std::uniform_int_distribution<int> sizeDist(0, count - 1);
+            totalBet = currentMax + static_cast<int>(pot * sizes[sizeDist(rng)]);
+        }
+        
+        int minimumBet;
 
+        if (state.previousRaiseTotal > 0) {
+            minimumBet = computeMinRaise(state.previousRaiseTotal, state.betBeforeRaise);
+        } else {
+            minimumBet = currentMax + state.bigBlind;
+        }
+
+        totalBet = std::max(totalBet, minimumBet);
         bool villainActs = (r % 2 == 0); // alternating the one who raises
-        float fraction = fractionDist(rng); // generate random raise multiplier
-        int raiseAmount = static_cast<int>(pot * fraction); // multiply pot with randomized fraction
-        int totalBet = currentMax + raiseAmount; // totalBet: new total street contribution
-
+ 
         // even raise No. in order, villain acts
         if (villainActs) {
             // verify whether the raise or bet amount is affordable using villain's stack
@@ -390,27 +425,55 @@ MCCFRState buildSimulationState(std::mt19937& rng) {
             state.villainStreetBet = state.heroStreetBet;
         }
     }
+    
+
     // let's simulate a scenario where the last action is a raise to be called
-    if (isThereUncalledRaise && state.raiseCount < 4 && state.villainStack > 0) {
-        int currentPot = state.potBase + state.heroStreetBet + state.villainStreetBet;
-        int villainAllIn = state.villainStack + state.villainStreetBet;
-        int minBet;
-        
-        if (state.previousRaiseTotal > 0) {
-            minBet = computeMinRaise(state.previousRaiseTotal, state.betBeforeRaise);
-        } else {
-            minBet = state.villainStreetBet + state.bigBlind;
-        }
-        
-        if (minBet < villainAllIn) {
-            std::uniform_int_distribution<int> betDist(minBet, villainAllIn);
-            int totalBet = betDist(rng);
-            state.betBeforeRaise = state.villainStreetBet;
-            int additional = totalBet - state.villainStreetBet;
-            state.villainStack -= additional;
-            state.previousRaiseTotal = totalBet;
-            state.raiseCount++;
-            state.villainStreetBet = totalBet;
+    
+    bool isThereUncalledRaise = (randomGen(rng) == 0);
+    bool heroMakesUncalledRaise = (randomGen(rng) == 0);
+    
+    if (isThereUncalledRaise && state.raiseCount < 4) {
+        if (heroMakesUncalledRaise && state.heroStack > 0) {
+            int heroAllIn = state.heroStack + state.heroStreetBet;
+            int minBet;
+            
+            if (state.previousRaiseTotal > 0) {
+                minBet = computeMinRaise(state.previousRaiseTotal, state.betBeforeRaise);
+            } else {
+                int currentMax = std::max(state.heroStreetBet, state.villainStreetBet);
+                minBet = currentMax + state.bigBlind;
+            }
+            
+            if (minBet < heroAllIn) {
+                std::uniform_int_distribution<int> betDist(minBet, heroAllIn);
+                int totalBet = betDist(rng);
+                state.betBeforeRaise = state.heroStreetBet;
+                int additional = totalBet - state.heroStreetBet;
+                state.heroStack -= additional;
+                state.heroStreetBet = totalBet;
+                state.previousRaiseTotal = totalBet;
+                state.raiseCount++;
+            }
+        } else if (state.villainStack > 0) {
+            int villainAllIn = state.villainStack + state.villainStreetBet;
+            int minBet;
+            
+            if (state.previousRaiseTotal > 0) {
+                minBet = computeMinRaise(state.previousRaiseTotal, state.betBeforeRaise);
+            } else {
+                minBet = state.villainStreetBet + state.bigBlind;
+            }
+            
+            if (minBet < villainAllIn) {
+                std::uniform_int_distribution<int> betDist(minBet, villainAllIn);
+                int totalBet = betDist(rng);
+                state.betBeforeRaise = state.villainStreetBet;
+                int additional = totalBet - state.villainStreetBet;
+                state.villainStack -= additional;
+                state.villainStreetBet = totalBet;
+                state.previousRaiseTotal = totalBet;
+                state.raiseCount++;
+            }
         }
     }
 

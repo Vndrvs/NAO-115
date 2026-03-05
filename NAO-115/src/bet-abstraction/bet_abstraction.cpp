@@ -5,52 +5,6 @@
 
 namespace BetAbstraction {
 
-/*
- Preflop open sizes as BB multipliers.
- SB acts first preflop and can open to these sizes.
- BB can also raise to these sizes after SB limps.
- */
-static const float PREFLOP_OPEN_SIZES[] = { 2.0f, 3.0f };
-static const int PREFLOP_OPEN_COUNT   = 2;
-
-/*
- Preflop reraise multiplier.
- Applied to previousRaiseTotal to compute 3-bet and 4-bet sizes.
- Example: SB opens 3BB, BB 3-bets to 2.5 * 3BB = 7.5BB
- */
-static const float PREFLOP_RERAISE_MULTIPLIER = 2.5f;
-
-/*
- Post-flop initial bet sizes as fractions of totalPot().
- Used when no bet is facing the current player.
- */
-static const float POSTFLOP_BET_SIZES[]  = { 0.33f, 0.75f, 1.50f };
-static const int POSTFLOP_BET_COUNT    = 3;
-
-/*
- Post-flop raise sizes as fractions of totalPot() using call-first geometry.
- Used when facing a bet (raiseCount 1 -> 2).
- */
-static const float POSTFLOP_RAISE_SIZES[] = { 0.75f, 1.50f };
-static const int POSTFLOP_RAISE_COUNT = 2;
-
-/*
- Post-flop 3-bet sizes as fractions of totalPot() using call-first geometry.
- Used when facing a raise (raiseCount 2 -> 3).
- */
-static const float POSTFLOP_3BET_SIZES[] = { 1.00f };
-static const int POSTFLOP_3BET_COUNT = 1;
-
-/*
- Maximum raises per street before only call/fold is allowed.
- raiseCount 0: initial bet
- raiseCount 1: raise
- raiseCount 2: 3-bet
- raiseCount 3: 4-bet (all-in only)
- raiseCount 4: call/fold only
- */
-static const int MAX_RAISES = 4;
-
 std::vector<AbstractAction> getLegalActions(const MCCFRState& state) {
     std::vector<AbstractAction> actions;
     actions.reserve(7); // max possible actions at any node
@@ -66,7 +20,6 @@ std::vector<AbstractAction> getLegalActions(const MCCFRState& state) {
     
     // calculate whether we are facing a bet currently
     const int toCall = state.villainStreetBet - state.heroStreetBet;
-    
     
     // Special case: Someone is all-in
     // if either player has no chips left, no betting is possible
@@ -88,14 +41,12 @@ std::vector<AbstractAction> getLegalActions(const MCCFRState& state) {
                 if (state.raiseCount == 0) {
                     // BB option after limp — use open sizes
                     for (int i = 0; i < PREFLOP_OPEN_COUNT; i++) {
-                        amounts.push_back(computePreflopOpen(
-                                                             PREFLOP_OPEN_SIZES[i], state.bigBlind, effectiveStack));
+                        amounts.push_back(computePreflopOpen(PREFLOP_OPEN_SIZES[i], state.bigBlind, effectiveStack));
                     }
                     amounts = filterAndDeduplicate(amounts, 1, effectiveAllIn);
                 } else {
                     // re-raise after both players equalized — use 2.5x
-                    amounts.push_back(computePreflopReraise(
-                                                            PREFLOP_RERAISE_MULTIPLIER, state.previousRaiseTotal, effectiveStack));
+                    amounts.push_back(computePreflopReraise(PREFLOP_RERAISE_MULTIPLIER, state.previousRaiseTotal, effectiveStack));
                     int minRaise = computeMinRaise(state.previousRaiseTotal, state.betBeforeRaise);
                     amounts = filterAndDeduplicate(amounts, minRaise, effectiveAllIn);
                 }
@@ -117,14 +68,12 @@ std::vector<AbstractAction> getLegalActions(const MCCFRState& state) {
                 if (state.raiseCount == 0) {
                     // SB first action, BB is live bet — use open sizes
                     for (int i = 0; i < PREFLOP_OPEN_COUNT; i++) {
-                        amounts.push_back(computePreflopOpen(
-                                                             PREFLOP_OPEN_SIZES[i], state.bigBlind, effectiveStack));
+                        amounts.push_back(computePreflopOpen(PREFLOP_OPEN_SIZES[i], state.bigBlind, effectiveStack));
                     }
                     amounts = filterAndDeduplicate(amounts, 1, effectiveAllIn);
                 } else {
                     // facing actual raise — use 2.5x
-                    amounts.push_back(computePreflopReraise(
-                                                            PREFLOP_RERAISE_MULTIPLIER, state.previousRaiseTotal, effectiveStack));
+                    amounts.push_back(computePreflopReraise(PREFLOP_RERAISE_MULTIPLIER, state.previousRaiseTotal, effectiveStack));
                     int minRaise = computeMinRaise(state.previousRaiseTotal, state.betBeforeRaise);
                     amounts = filterAndDeduplicate(amounts, minRaise, effectiveAllIn);
                 }
