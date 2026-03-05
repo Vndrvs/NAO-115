@@ -288,20 +288,28 @@ MCCFRState buildSimulationState(std::mt19937& rng) {
     // preflop blind status
     if (state.street == 0) {
         if (isHeroSmallBlind) {
-            state.heroStreetBet = 50; // hero is small blind
-            state.villainStreetBet = 100; // villain is big blind
-            state.heroStack -= 50; // deduct the sb from hero's stack
-            state.villainStack -= 100; // deduct the bb from villain's stack
+            state.heroStreetBet    = 50;
+            state.villainStreetBet = 100;
+            state.heroStack       -= 50;
+            state.villainStack    -= 100;
+            // SB still needs to act — bets unequal, correct
+            // but we need to equalize before the raise loop
+            // simulate SB completing to BB
+            state.heroStack       -= 50;
+            state.heroStreetBet    = 100;
         } else {
-            state.villainStreetBet = 50; // villain is small blind
-            state.heroStreetBet = 100; // hero is big blind
-            state.villainStack -= 50; // deduct the sb from villain's stack
-            state.heroStack -= 100; // deduct the bb from hero's stack
+            state.heroStreetBet    = 100;
+            state.villainStreetBet = 50;
+            state.heroStack       -= 100;
+            state.villainStack    -= 50;
+            // equalize — villain completes to BB
+            state.villainStack    -= 50;
+            state.villainStreetBet = 100;
         }
     }
     
     if (state.street > 0) { // randomized postflop pot size
-        std::uniform_int_distribution<int> potDist(0, 5000);
+        std::uniform_int_distribution<int> potDist(100, 5000);
         state.potBase = potDist(rng) * 2;
         // deduct the pot's halves from the available stacks
         int eachAlreadyContributed = state.potBase / 2;
@@ -424,6 +432,10 @@ MCCFRState buildSimulationState(std::mt19937& rng) {
             state.villainStack -= villainAdditional;
             state.villainStreetBet = state.heroStreetBet;
         }
+        // bets are now equal — move them into the pot for next iteration
+        state.potBase += state.heroStreetBet + state.villainStreetBet;
+        state.heroStreetBet = 0;
+        state.villainStreetBet = 0;
     }
     
 
@@ -477,5 +489,95 @@ MCCFRState buildSimulationState(std::mt19937& rng) {
         }
     }
 
+    int totalChips = state.heroStack + state.villainStack
+                   + state.heroStreetBet + state.villainStreetBet
+                   + state.potBase;
+    assert(totalChips == 40000 && "chip conservation violated");
+    
     return state;
+}
+
+
+TEST_F(BetAbstractionTest, Fuzz_LegalActionInvariants) {
+    std::mt19937 rng(1337);
+    
+    for (int i = 0; i < 2000; ++i) {
+        
+        MCCFRState s = buildSimulationState(rng);
+        
+        // skip states where hero raised uncalled (negative toCall perspective)
+        if (s.heroStreetBet > s.villainStreetBet) continue;
+        
+        // skip degenerate states
+        if (s.heroStack <= 0 && s.villainStack <= 0) continue;
+        if (s.effectiveAllIn() <= 0) continue;
+        
+        auto actions = getLegalActions(s);
+        ASSERT_FALSE(actions.empty());
+        
+        SCOPED_TRACE("Iteration: " + std::to_string(i)
+                     + stateToString(s)
+                     + actionsToString(actions));
+ 
+        int toCall = s.villainStreetBet - s.heroStreetBet;
+        ASSERT_GE(toCall, 0);
+
+        bool hasFold = false;
+        bool hasCheck = false;
+        bool hasCall = false;
+        int  raiseCountSeen = 0;
+        int  lastRaiseAmount = -1;
+
+        for (const auto& a : actions) {
+            ASSERT_GE(a.amount, 0);
+            ASSERT_LE(a.amount, s.effectiveAllIn());
+
+            switch (a.type) {
+                case 0: hasFold = true; break;
+                case 1: hasCheck = true; break;
+                case 2: hasCall = true; break;
+                case 3: {
+                    raiseCountSeen++;
+                    ASSERT_GT(a.amount, s.heroStreetBet);
+                    ASSERT_GT(a.amount, lastRaiseAmount);
+                    lastRaiseAmount = a.amount;
+                    break;
+                }
+            }
+        }
+        
+        // ensure at most one all-in raise
+        int allInRaises = 0;
+        for (const auto& a : actions) {
+            if (a.type == 3 && a.amount == s.effectiveAllIn()) {
+                allInRaises++;
+            }
+        }
+        ASSERT_LE(allInRaises, 1);
+
+        // facing bet: must have fold and call, no check
+        if (toCall > 0) {
+            ASSERT_TRUE(hasFold);
+            ASSERT_TRUE(hasCall);
+            ASSERT_FALSE(hasCheck);
+        }
+
+        // no bet faced: must have check, no fold, no call
+        if (toCall == 0) {
+            ASSERT_TRUE(hasCheck);
+            ASSERT_FALSE(hasFold);
+            ASSERT_FALSE(hasCall);
+        }
+
+        // raise cap: at most one raise (all-in only)
+        if (s.raiseCount >= 4) {
+            ASSERT_LE(raiseCountSeen, 1);
+            if (raiseCountSeen == 1) {
+                ASSERT_EQ(lastRaiseAmount, s.effectiveAllIn());
+            }
+        }
+        if (s.raiseCount < 4 && !s.anyAllIn()) {
+            ASSERT_GT(raiseCountSeen, 0);
+        }
+    }
 }

@@ -21,9 +21,9 @@ int computePostflopAmount(float fraction, int pot, int villainBet, int heroCurre
     return std::min(totalBet, currentStack);
 }
 
-int computePreflopOpen(float multiplier, int bigBlind, int currentStack) {
+int computePreflopOpen(float multiplier, int bigBlind, int effectiveAllIn) {
     int amount = static_cast<int>(std::floor(multiplier * bigBlind));
-    return std::min(amount, currentStack);
+    return std::min(amount, effectiveAllIn);
 }
 
 int computePreflopReraise(float multiplier, int previousRaiseTotal, int currentStack) {
