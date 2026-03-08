@@ -59,6 +59,14 @@ struct MCCFRState {
     bool isTerminal;
     
     /*
+    True if a check has occurred this street.
+     On each check action, we verify it's state
+     - if false, flip it
+     - if true, the check Nao's facing is the second check -> we end the street
+    */
+    bool streetHasCheck;
+    
+    /*
     Index of the player who folded, or -1 if no fold has occurred.
      Used during terminal evaluation to determine the winner
      -1 = no fold (hand went to showdown or is still in progress)
@@ -105,6 +113,10 @@ struct MCCFRState {
      When villainStack == 0, villain is all-in
     */
     int32_t villainStack;
+    
+    int32_t player0Contribution;  // total chips player 0 has put in current hand
+    int32_t player1Contribution;  // total chips player 1 has put in current hand
+    
     /*
     The total amount of the last raise on this street.
      Example: villain raises to 400 total -> previousRaiseTotal = 400
@@ -151,19 +163,33 @@ struct MCCFRState {
     int32_t bucketId;
 
     // helper methods
+    
+    /*
+    True if the current hero is the small blind.
+     Used for network input encoding and position tracking.
+     Derived from currentPlayer - SB is always player 1.
+    */
+    bool heroIsSB() const {
+        return currentPlayer == 1;
+    }
+
     /*
     Total chips in the pot including current street bets from both players.
      This is what bet sizing fractions are applied against
      Example: potBase=500, heroStreetBet=100, villainStreetBet=300 -> totalPot=900
     */
-    int32_t totalPot() const { return potBase + heroStreetBet + villainStreetBet; }
+    int32_t totalPot() const {
+        return potBase + heroStreetBet + villainStreetBet;
+    }
     
     /*
     The effective stack — the smaller of the two stacks.
      No bet can exceed this amount since the opponent can't call more than they have.
      All-in = betting exactly effectiveStack chips.
     */
-    int32_t effectiveStack() const { return std::min(heroStack, villainStack); }
+    int32_t effectiveStack() const {
+        return std::min(heroStack, villainStack);
+    }
     
     /*
     True if we are in the preflop street.

@@ -4,6 +4,7 @@
 #include "bet-abstraction/bet_abstraction.hpp"
 #include "bet-abstraction/bet_maths.hpp"
 #include "cfr/mccfr_state.hpp"
+#include "cfr/game_engine.hpp"
 #include "eval/evaluator.hpp"
 #include "eval/tables.hpp"
 #include <cmath>

@@ -232,9 +232,7 @@ FlopFeatures calculateFlopFeaturesTwoAhead(const std::array<int, 2>& hand, const
     float HP[3][3]              = {};
     float handPotentialTotal[3] = {};
     
-    // per-runout counters for volatility
-    int hsWin[52][52]         = {};
-    int hsTie[52][52]         = {};
+    // per-runout counter for potential feature
     int hsTotal[52][52]       = {};
 
     // encoded rank of 'three of a kind' for feature computations
@@ -300,11 +298,9 @@ FlopFeatures calculateFlopFeaturesTwoAhead(const std::array<int, 2>& hand, const
                         finalState = BEHIND;
                     }
                     else if (selfBest > villainBest) {
-                        hsWin[turnCardIndex][riverCardIndex]++;
                         finalState = AHEAD;
                     }
                     else {
-                        hsTie[turnCardIndex][riverCardIndex]++;
                         finalState = TIED;
                     }
                     
@@ -410,9 +406,7 @@ TurnFeatures calculateTurnFeatures(const std::array<int, 2>& hand, const std::ar
     float HP[3][3]              = {};
     float handPotentialTotal[3] = {};
 
-    // per-runout counters
-    int hsWin[52]   = {};
-    int hsTie[52]   = {};
+    // per-runout counter for potential feature
     int hsTotal[52] = {};
 
     // encoded rank thresholds for feature computations
@@ -478,23 +472,10 @@ TurnFeatures calculateTurnFeatures(const std::array<int, 2>& hand, const std::ar
                 if (selfBest < villainBest) {
                     finalState = BEHIND;
                 } else if (selfBest > villainBest) {
-                    hsWin[riverCardIndex]++;
                     finalState = AHEAD;
                 } else {
-                    hsTie[riverCardIndex]++;
                     finalState = TIED;
                 }
-                
-                // evaluate nut potential for 3rd feature
-                if (selfBest > TRIPS_THRESHOLD) {
-                    // we are over the ceiling
-                    nutWinTotal += 1.f;
-                    // we actually win in this situation
-                    if (selfBest > villainBest) {
-                        nutWinSum += 1.f;
-                    }
-                }
-
                 // increment counters of EHS computation
                 hsTotal[riverCardIndex]++;
                 HP[turnState][finalState] += 1.f;
@@ -532,10 +513,18 @@ TurnFeatures calculateTurnFeatures(const std::array<int, 2>& hand, const std::ar
     float asymmetry = computeAsymmetry(handStrength, Ppot, Npot);
 
     // compute nut potential
-    float nutPotential = 0.f;
-    if (nutWinTotal > 0.f) {
-        nutPotential = nutWinSum / nutWinTotal;
+    int nutHits  = 0;
+    int nutTotal = 0;
+    for (int i = 0; i < 52; ++i) {
+        if (hsTotal[i] > 0) {
+            nutTotal++;
+            if (heroRiverEvals[i] > TRIPS_THRESHOLD) {
+                nutHits++;
+            }
+        }
     }
+    
+    float nutPotential = nutTotal > 0 ? float(nutHits) / nutTotal : 0.f;
 
     return TurnFeatures{ EHS, asymmetry, nutPotential };
 }

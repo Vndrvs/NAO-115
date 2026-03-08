@@ -28,35 +28,35 @@ namespace BetAbstraction {
  SB acts first preflop and can open to these sizes.
  BB can also raise to these sizes after SB limps.
  */
-static const float PREFLOP_OPEN_SIZES[] = { 2.0f, 3.0f };
-static const int PREFLOP_OPEN_COUNT   = 2;
+static const float PREFLOP_OPEN_SIZES[] = { 2.0f, 3.0f, 5.0f };
+static const int PREFLOP_OPEN_COUNT   = 3;
 
 /*
  Preflop reraise multiplier.
  Applied to previousRaiseTotal to compute 3-bet and 4-bet sizes.
  Example: SB opens 3BB, BB 3-bets to 2.5 * 3BB = 7.5BB
  */
-static const float PREFLOP_RERAISE_MULTIPLIER = 2.5f;
+static const float PREFLOP_RERAISE_MULTIPLIER = 2.50f;
 
 /*
  Post-flop initial bet sizes as fractions of totalPot().
  Used when no bet is facing the current player.
  */
-static const float POSTFLOP_BET_SIZES[]  = { 0.33f, 0.75f, 1.50f };
+static const float POSTFLOP_BET_SIZES[]  = { 0.50f, 1.0f, 2.0f };
 static const int POSTFLOP_BET_COUNT    = 3;
 
 /*
  Post-flop raise sizes as fractions of totalPot() using call-first geometry.
  Used when facing a bet (raiseCount 1 -> 2).
  */
-static const float POSTFLOP_RAISE_SIZES[] = { 0.75f, 1.50f };
-static const int POSTFLOP_RAISE_COUNT = 2;
+static const float POSTFLOP_RAISE_SIZES[] = { 0.50f, 1.0f, 2.0f };
+static const int POSTFLOP_RAISE_COUNT = 3;
 
 /*
  Post-flop 3-bet sizes as fractions of totalPot() using call-first geometry.
  Used when facing a raise (raiseCount 2 -> 3).
  */
-static const float POSTFLOP_3BET_SIZES[] = { 1.00f };
+static const float POSTFLOP_3BET_SIZES[] = { 0.80f };
 static const int POSTFLOP_3BET_COUNT = 1;
 
 /*
