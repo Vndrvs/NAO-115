@@ -29,13 +29,13 @@
 namespace Bucketer {
 
 // CONFIGURATION
-const int FLOP_BUCKETS  = 20;
-const int TURN_BUCKETS  = 100;
-const int RIVER_BUCKETS = 100;
+const int FLOP_BUCKETS  = 1000;
+const int TURN_BUCKETS  = 1000;
+const int RIVER_BUCKETS = 1000;
 
-const int SAMPLES_FLOP  = 200;
-const int SAMPLES_TURN  = 200000;
-const int SAMPLES_RIVER = 20000;
+const int SAMPLES_FLOP  = 1000000;
+const int SAMPLES_TURN  = 1000000;
+const int SAMPLES_RIVER = 1000000;
 
 
 std::vector<std::vector<float>> centroids[3];
@@ -427,7 +427,7 @@ void generate_centroids() {
     std::string suffix = get_timestamp_suffix();
     std::string distLogName = "output/logs/data_distribution" + suffix + ".txt";
     std::string kmeansLogName = "output/logs/kmeans_log" + suffix + ".txt";
-    std::string datFileName   = "output/data/centroids" + suffix + ".dat";
+    std::string datFileName = "output/data/centroids.dat";
 
     DataDistributionLogger distributionLogger(distLogName);
     
@@ -578,7 +578,7 @@ void initialize() {
             in.read((char*)&feature_stats[s][i][1], sizeof(float));
         }
         
-        centroids[s].resize(numCentroids);
+        centroids[s].resize(numCentroids, std::vector<float>(numFeatures));
         for(int i=0; i<numCentroids; i++) {
             in.read((char*)centroids[s][i].data(), numFeatures * sizeof(float));
         }

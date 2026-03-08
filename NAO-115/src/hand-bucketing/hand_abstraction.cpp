@@ -411,9 +411,6 @@ TurnFeatures calculateTurnFeatures(const std::array<int, 2>& hand, const std::ar
 
     // encoded rank thresholds for feature computations
     constexpr int TRIPS_THRESHOLD = 4995;
-    
-    float nutWinSum   = 0.f;
-    float nutWinTotal = 0.f;
 
     // create mask for computing villain card 1
     uint64_t villainMask = context.deckMask;
@@ -535,7 +532,6 @@ RiverFeatures calculateRiverFeatures(const std::array<int, 2>& hand, const std::
 
     constexpr int TWO_PAIR_THRESHOLD = 4138;
     int strongCombosNoHero = 0;
-    int totalCombosNoHero  = 0;
 
     uint64_t villainMaskNoHero = (~(
         (1ULL << board[0]) | (1ULL << board[1]) | (1ULL << board[2]) |
@@ -558,8 +554,6 @@ RiverFeatures calculateRiverFeatures(const std::array<int, 2>& hand, const std::
                 int score = eval_7(villainCard1, villainCard2,
                     context.b0, context.b1, context.b2,
                     context.b3, context.b4);
-
-                totalCombosNoHero++;
                 
                 if (score > TWO_PAIR_THRESHOLD) {
                     strongCombosNoHero++;
