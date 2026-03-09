@@ -10,6 +10,16 @@ extern const int FLOP_BUCKETS;
 extern const int TURN_BUCKETS;
 extern const int RIVER_BUCKETS;
 
+struct BucketData {
+    float centroids[3][2000 * 4];
+    float means[3][4];
+    float stddevs[3][4];
+    int   numCentroids[3];
+    int   numFeatures[3];
+};
+
+extern BucketData bucketData;
+
 int get_preflop_bucket(const std::vector<int>& h);
 std::vector<float> get_features_dynamic(const std::vector<int>& hand, const std::vector<int>& board);
 void compute_stats(const std::vector<std::vector<float>>& data, std::vector<std::array<float,2>>& stats);
@@ -18,6 +28,11 @@ std::vector<std::vector<float>> kmeans(const std::vector<std::vector<float>>& da
 void initialize();
 void prepare_filesystem();
 
+void get_features_river_runtime(const std::vector<int>& hand, const std::vector<int>& board, float* out);
+void get_features_dynamic(
+    const std::vector<int>& hand,
+    const std::vector<int>& board,
+                          float* out);
 int get_bucket(const std::vector<int>& hand, const std::vector<int>& board);
 void generate_centroids();
 void analyze_centroids_full();

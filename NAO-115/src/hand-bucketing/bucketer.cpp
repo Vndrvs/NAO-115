@@ -12,7 +12,6 @@
 #include <atomic>
 #include <stdexcept>
 #include <limits>
-#include <random>
 #include <chrono>
 #include <iomanip>
 #include <ctime>
@@ -37,9 +36,9 @@ const int SAMPLES_FLOP  = 1000000;
 const int SAMPLES_TURN  = 1000000;
 const int SAMPLES_RIVER = 1000000;
 
-
 std::vector<std::vector<float>> centroids[3];
 std::vector<std::array<float,2>> feature_stats[3];
+BucketData bucketData;
 
 bool initialized = false;
 
@@ -104,25 +103,28 @@ int get_preflop_bucket(const std::vector<int>& h) {
 }
 
 // CALCULATE FLOP AND TURN FEATURES
-std::vector<float> get_features_dynamic(
+void get_features_dynamic(
     const std::vector<int>& hand,
-    const std::vector<int>& board
-) {
+    const std::vector<int>& board,
+    float* out) {
     std::array<int, 2> hand_arr = { hand[0], hand[1] };
-
-    if (board.size() == 3) {
-        std::array<int, 3> board_arr = { board[0], board[1], board[2] };
-        Eval::FlopFeatures f = Eval::calculateFlopFeaturesTwoAhead(hand_arr, board_arr);
-        return { f.ehs, f.asymmetry, f.nutPotential };
-    }
     
-    else if (board.size() == 4) {
-        std::array<int, 4> board_arr = { board[0], board[1], board[2], board[3] };
-        Eval::TurnFeatures f = Eval::calculateTurnFeatures(hand_arr, board_arr);
-        return { f.ehs, f.asymmetry, f.nutPotential };
+    if (board.size() == 3) {
+        std::array<int,3> board_arr = { board[0], board[1], board[2] };
+        Eval::FlopFeatures f = Eval::calculateFlopFeaturesTwoAhead(hand_arr, board_arr);
+        
+        out[0] = f.ehs;
+        out[1] = f.asymmetry;
+        out[2] = f.nutPotential;
     }
-
-    return { 0, 0, 0, 0 };
+    else if (board.size() == 4) {
+        std::array<int,4> board_arr = { board[0], board[1], board[2], board[3] };
+        Eval::TurnFeatures f = Eval::calculateTurnFeatures(hand_arr, board_arr);
+        
+        out[0] = f.ehs;
+        out[1] = f.asymmetry;
+        out[2] = f.nutPotential;
+    }
 }
 
 // NORMALIZATION
@@ -418,9 +420,10 @@ void drawRiver(std::mt19937& rng, std::uniform_int_distribution<int>& dist,
 // CENTROID ARITHMETIC
 
 void generate_centroids() {
-    omp_set_num_threads(6);
+    prepare_filesystem();
+    omp_set_num_threads(8);
     Eval::initialize();
-    
+
     std::cout << "Training bucketer..." << std::endl;
     
     // file naming logic
@@ -493,6 +496,7 @@ void generate_centroids() {
                         }
             }
         }
+        
         std::cout << "\r    generated " << N << " / " << N << std::endl;
         
         std::cout << "[2/4] Logging Distribution..." << std::flush;
@@ -527,22 +531,19 @@ void generate_centroids() {
     if (!out.is_open()) {
         std::cerr << "Error: Could not open " << datFileName << " for writing!" << std::endl;
     } else {
-        for(int street = 0; street < 3; street++){
-            int numCentroids = static_cast<int>(centroids[street].size());
-            int numFeatures = centroids[street].empty() ? 0 : static_cast<int>(centroids[street][0].size());
-            
-            out.write((char*)&numCentroids, sizeof(int));
-            out.write((char*)&numFeatures, sizeof(int));
-            
-            for(int i = 0 ; i < numFeatures; i++) {
-                out.write((char*)&feature_stats[street][i][0], sizeof(float));
+        for (int street = 0; street < 3; street++) {
+            int k = (int)centroids[street].size();
+            int dim = (int)centroids[street][0].size();
+            out.write((char*)&k,   sizeof(int));
+            out.write((char*)&dim, sizeof(int));
+            for (int i = 0; i < dim; i++) {
+                out.write((char*)&feature_stats[street][i][0], sizeof(float)); // means
             }
-            for(int i = 0; i < numFeatures; i++) {
-                out.write((char*)&feature_stats[street][i][1], sizeof(float));
+            for (int i = 0; i < dim; i++) {
+                out.write((char*)&feature_stats[street][i][1], sizeof(float)); // stddevs
             }
-            
-            for(auto& c : centroids[street]) {
-                out.write((char*)c.data(), numFeatures * sizeof(float));
+            for (auto& c : centroids[street]) {
+                out.write((char*)c.data(), dim * sizeof(float));
             }
         }
         out.close();
@@ -552,94 +553,106 @@ void generate_centroids() {
 
 // runtime
 
+template<int DIM>
+int nearest_centroid(const float* f, const float* cents, int k) {
+    int best = 0;
+    float minDist = std::numeric_limits<float>::max();
+    for (int c = 0; c < k; ++c) {
+        const float* cent = cents + c * DIM;
+        float d0 = f[0] - cent[0];
+        float d1 = f[1] - cent[1];
+        float d2 = f[2] - cent[2];
+        float d  = d0*d0 + d1*d1 + d2*d2;
+        if constexpr (DIM == 4) {
+            float d3 = f[3] - cent[3];
+            d += d3*d3;
+        }
+        if (d < minDist) {
+            minDist = d; best = c;
+        }
+    }
+    return best;
+}
+
 void initialize() {
-    if(initialized) {
+    if (initialized) {
         return;
     }
-    
-    std::ifstream in("centroids.dat", std::ios::binary);
-    
-    if(!in.is_open()) {
-        std::cerr << "Error: Could not open centroids.dat. Run training first!\n";
+    std::cout << "initialize called\n";
+
+    std::ifstream in("output/data/centroids.dat", std::ios::binary);
+    if (!in.is_open()) {
+        std::cerr << "Error: Could not open centroids.dat\n";
         exit(1);
     }
 
-    for(int s=0; s<3; s++){
-        int numCentroids, numFeatures;
-        in.read((char*)&numCentroids, sizeof(int));
-        in.read((char*)&numFeatures, sizeof(int));
-        
-        feature_stats[s].resize(numFeatures, {0.f, 0.f});
-        for(int i=0; i<numFeatures; i++) {
-            in.read((char*)&feature_stats[s][i][0], sizeof(float));
+    for (int s = 0; s < 3; s++) {
+        int k, dim;
+        in.read((char*)&k,   sizeof(int));
+        in.read((char*)&dim, sizeof(int));
+        std::cout << "street=" << s << " k=" << k << " dim=" << dim
+                  << " max_index=" << (k-1)*dim+dim-1 << std::endl;
+        bucketData.numCentroids[s] = k;
+        bucketData.numFeatures[s]  = dim;
+
+        for (int i = 0; i < dim; i++) {
+            in.read((char*)&bucketData.means[s][i],   sizeof(float));
         }
-        
-        for(int i=0; i<numFeatures; i++) {
-            in.read((char*)&feature_stats[s][i][1], sizeof(float));
+        for (int i = 0; i < dim; i++) {
+            in.read((char*)&bucketData.stddevs[s][i], sizeof(float));
         }
-        
-        centroids[s].resize(numCentroids, std::vector<float>(numFeatures));
-        for(int i=0; i<numCentroids; i++) {
-            in.read((char*)centroids[s][i].data(), numFeatures * sizeof(float));
+        for (int c = 0; c < k; c++) {
+            in.read((char*)&bucketData.centroids[s][c * dim], dim * sizeof(float));
         }
     }
-    
+
     initialized = true;
 }
 
-std::vector<float> get_features_river_runtime(const std::vector<int>& hand, const std::vector<int>& board) {
+void get_features_river_runtime(const std::vector<int>& hand, const std::vector<int>& board, float* out) {
     std::array<int, 2> h = { hand[0], hand[1] };
     std::array<int, 5> b = { board[0], board[1], board[2], board[3], board[4] };
 
     Eval::RiverFeatures f = Eval::calculateRiverFeatures(h, b);
-    return { f.equityTotal, f.equityVsStrong, f.equityVsWeak, f.blockerIndex };
+    out[0] = f.equityTotal;
+    out[1] = f.equityVsStrong;
+    out[2] = f.equityVsWeak;
+    out[3] = f.blockerIndex;
 }
 
 int get_bucket(const std::vector<int>& h, const std::vector<int>& b) {
-    if(b.empty()) {
+    if (b.empty()) {
         return get_preflop_bucket(h);
     }
-    if(!initialized) {
-        initialize();
+    if (!initialized) initialize();
+
+    int st  = b.size()==3 ? 0 : b.size()==4 ? 1 : 2;
+    int dim = bucketData.numFeatures[st];
+    int k   = bucketData.numCentroids[st];
+
+    // compute raw features
+    float fv[4];
+
+    if (st == 2) { // river case point to river runtime
+        get_features_river_runtime(h, b, fv);
+    }
+    else { // other postflops to dynamic
+        get_features_dynamic(h, b, fv);
+    }
+    // normalize
+    float f[4];
+    for (int i = 0; i < dim; i++) {
+        float s = bucketData.stddevs[st][i];
+        f[i] = s > 1e-9f ? (fv[i] - bucketData.means[st][i]) / s : 0.f;
     }
 
-    int st = b.size()==3 ? 0 : b.size()==4 ? 1 : 2;
-    
-    std::vector<float> f_vec;
+    const float* cents = bucketData.centroids[st];
     if (st == 2) {
-        f_vec = get_features_river_runtime(h, b);
-    } else {
-        f_vec = get_features_dynamic(h, b);
+        return nearest_centroid<4>(f, cents, k);
     }
-
-    std::vector<float> f_norm = f_vec;
-
-    int dim = static_cast<int>(centroids[st][0].size());
-    
-    for(int i=0; i < dim; i++){
-        float m = feature_stats[st][i][0];
-        float s = feature_stats[st][i][1];
-        if(s > 1e-9f) {
-            f_norm[i] = (f_norm[i] - m) / s;
-        }
+    else {
+        return nearest_centroid<3>(f, cents, k);
     }
-
-    int best = 0;
-    float min_dist = std::numeric_limits<float>::max();
-    
-    for(int i=0; i < centroids[st].size(); i++){
-        float d = 0.f;
-        for(int k=0; k < dim; k++) {
-            float diff = f_norm[k] - centroids[st][i][k];
-            d += diff * diff;
-        }
-        
-        if(d < min_dist) {
-            min_dist = d;
-            best = i;
-        }
-    }
-    return best;
 }
 
 }

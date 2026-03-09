@@ -2,7 +2,7 @@
 #include "hand-bucketing/bucketer.hpp"
 
 int main() {
-    Bucketer::prepare_filesystem();
+    
     Bucketer::generate_centroids();
     return 0;
 }
