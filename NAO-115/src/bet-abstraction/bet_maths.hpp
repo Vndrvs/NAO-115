@@ -40,6 +40,10 @@
  */
 
 namespace BetAbstraction {
+
+const int MAX_RAISE_SIZES = 3;
+
+int computeAmount(float fraction, int pot, int villainBet, int heroCurrentBet, int currentStack);
 /*
 Computes bet/raise amount as a fraction of the pot (valid in flop/turn/river).
 initial bets (no villain bet): pass villainBet = 0, heroCurrentBet = 0

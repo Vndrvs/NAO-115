@@ -1,7 +1,7 @@
 #pragma once
 
 #include "mccfr_state.hpp"
-#include "bet-abstraction/bet_abstraction.hpp"
+#include "bet-abstraction/bet_sequence.hpp"
 
 namespace GameEngine {
 
@@ -20,7 +20,8 @@ Transitions handled internally:
  @param action - action to apply
  @param deck - remaining deck for dealing board cards (used on street transitions)
  @return - new state after action is applied
- */
+*/
+
 MCCFRState applyAction(MCCFRState state, BetAbstraction::AbstractAction action);
 
 /*
@@ -28,7 +29,7 @@ MCCFRState applyAction(MCCFRState state, BetAbstraction::AbstractAction action);
  -> no more actions can be taken and Nao is able to compute payoff
  */
 bool isGamestateTerminal(const MCCFRState& state);
-
+ 
 /*
 Returns the payoff for the ORIGINAL hero (player 0) at a terminal node.
  Positive = player 0 wins, negative = player 0 loses.
@@ -47,7 +48,7 @@ int getPayoff(const MCCFRState& state,
 Switch the current player — swap hero/villain fields.
 -> called internally by applyAction but exposed for testing
  */
-MCCFRState switchPlayer(MCCFRState state);
+void switchPlayer(MCCFRState& state);
 
 /*
 Transition to the next street.
@@ -57,6 +58,6 @@ Transition to the next street.
  - increments street
  - sets currentPlayer to 0 (BB is first to act postflop)
  */
-MCCFRState transitionStreet(MCCFRState state);
+void transitionStreet(MCCFRState& state);
 
 }

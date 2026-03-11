@@ -29,6 +29,7 @@ namespace BetAbstraction {
  BB can also raise to these sizes after SB limps.
  */
 static const float PREFLOP_OPEN_SIZES[] = { 2.0f, 3.0f, 5.0f };
+static const float PREFLOP_RAISE_SIZES[] = { 2.0f, 3.0f, 5.0f };
 static const int PREFLOP_OPEN_COUNT   = 3;
 
 /*
@@ -37,13 +38,14 @@ static const int PREFLOP_OPEN_COUNT   = 3;
  Example: SB opens 3BB, BB 3-bets to 2.5 * 3BB = 7.5BB
  */
 static const float PREFLOP_RERAISE_MULTIPLIER = 2.50f;
+static const float RERAISE_MULTIPLIER = 0.80f;
 
 /*
  Post-flop initial bet sizes as fractions of totalPot().
  Used when no bet is facing the current player.
  */
 static const float POSTFLOP_BET_SIZES[]  = { 0.50f, 1.0f, 2.0f };
-static const int POSTFLOP_BET_COUNT    = 3;
+//static const int POSTFLOP_BET_COUNT    = 3;
 
 /*
  Post-flop raise sizes as fractions of totalPot() using call-first geometry.
@@ -66,14 +68,14 @@ static const int POSTFLOP_3BET_COUNT = 1;
  raiseCount 2: 3-bet
  raiseCount 3: 4-bet (all-in only)
  raiseCount 4: call/fold only
- */
-static const int MAX_RAISES = 4;
+
+//static const int MAX_RAISES = 4;
 
 struct AbstractAction {
     uint8_t type;      // 0=fold, 1=check, 2=call, 3=bet/raise
     int32_t amount;    // 0 for fold/check/call, total bet amount for bet/raise
 };
-
+ */
 /*
 Returns all legal abstract actions for the current player at this node.
  
@@ -89,6 +91,6 @@ Handles:
  - Minimum raise filtering
  - Removal of duplicates in case of collapsed sizes
  */
-std::vector<AbstractAction> getLegalActions(const MCCFRState& state);
+//std::vector<AbstractAction> getLegalActions(const MCCFRState& state);
 
 }

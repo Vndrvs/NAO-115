@@ -1,22 +1,22 @@
 #include "game_engine.hpp"
 #include "eval/evaluator.hpp"
 #include "mccfr_state.hpp"
+#include "bet-abstraction/bet_sequence.hpp"
 #include <cassert>
 #include <algorithm>
 
 namespace GameEngine {
 
-MCCFRState switchPlayer(MCCFRState state) {
+void switchPlayer(MCCFRState& state) {
     // switch the stacks
     std::swap(state.heroStack, state.villainStack);
     // switch the bet counters for current street
     std::swap(state.heroStreetBet, state.villainStreetBet);
     // invert the current player tracker
     state.currentPlayer = 1 - state.currentPlayer;
-    return state;
 }
 
-MCCFRState transitionStreet(MCCFRState state) {
+void transitionStreet(MCCFRState& state) {
     // add current street bets to pot and null them
     state.potBase += state.heroStreetBet + state.villainStreetBet;
     state.heroStreetBet = 0;
@@ -32,9 +32,8 @@ MCCFRState transitionStreet(MCCFRState state) {
     // BB (player 0) is first to act postflop
     // if currentPlayer is not BB, we should switch
     if (state.currentPlayer != 0) {
-        state = switchPlayer(state);
+        switchPlayer(state);
     }
-    return state;
 }
 
 MCCFRState applyAction(MCCFRState state, BetAbstraction::AbstractAction action) {
@@ -42,34 +41,42 @@ MCCFRState applyAction(MCCFRState state, BetAbstraction::AbstractAction action) 
     // we need to handle each action type case
     switch (action.type) {
 
-        case 0: {
+        case BetAbstraction::FOLD: {
             state.foldedPlayer = state.currentPlayer;
             state.isTerminal = true;
             return state;
         }
 
-        case 1: { // check
+        case BetAbstraction::CHECK: { // check
+            
+            if (state.street == 0 &&
+                state.currentPlayer == 0 &&
+                state.raiseCount == 0 &&
+                state.heroStreetBet == state.villainStreetBet) {
+
+                transitionStreet(state);
+                return state;
+            }
+            
             if (state.streetHasCheck) {
                 // second check — street over
                 if (state.street == 3) {
                     state.isTerminal = true;
                     return state;
                 }
-                state = transitionStreet(state);
+                transitionStreet(state);
                 return state;
             } else {
                 // first check — opponent still to act
                 state.streetHasCheck = true;
-                state = switchPlayer(state);
+                switchPlayer(state);
                 return state;
             }
         }
 
-        case 2: { // call
-            assert(state.villainStreetBet >= state.heroStreetBet && "cannot call — hero already matches or exceeds villain bet");
+        case BetAbstraction::CALL: { // call
             int callAmount = state.villainStreetBet - state.heroStreetBet;
-            assert(callAmount <= state.heroStack && "hero cannot call more than their remaining stack");
-            state.heroStack    -= callAmount;
+            state.heroStack -= callAmount;
             state.heroStreetBet = state.villainStreetBet;
 
             // track contribution
@@ -88,17 +95,21 @@ MCCFRState applyAction(MCCFRState state, BetAbstraction::AbstractAction action) 
                 state.isTerminal = true;
                 return state;
             }
+            
+            // before moving on to next street, BB should get a chance to act
+            if (state.street == 0 && state.currentPlayer == 1 && state.raiseCount == 0) {
+                switchPlayer(state);
+                return state;
+            }
 
-            state = transitionStreet(state);
+            transitionStreet(state);
             return state;
         }
 
-        case 3: { // bet/raise
-            assert(action.amount > state.heroStreetBet && "raise amount must exceed hero's current street bet");
+        case BetAbstraction::RAISE: { // bet/raise
             int additional = action.amount - state.heroStreetBet;
-            assert(additional <= state.heroStack && "hero cannot bet more than their remaining stack");
-            state.heroStack      -= additional;
-            state.heroStreetBet   = action.amount;
+            state.heroStack -= additional;
+            state.heroStreetBet = action.amount;
 
             // track contribution
             if (state.currentPlayer == 0) {
@@ -107,10 +118,10 @@ MCCFRState applyAction(MCCFRState state, BetAbstraction::AbstractAction action) 
                 state.player1Contribution += additional;
             }
 
-            state.betBeforeRaise     = state.villainStreetBet;
+            state.betBeforeRaise = state.villainStreetBet;
             state.previousRaiseTotal = action.amount;
             state.raiseCount++;
-            state = switchPlayer(state);
+            switchPlayer(state);
             return state;
         }
     }
@@ -127,7 +138,7 @@ bool isGamestateTerminal(const MCCFRState& state) {
 int getPayoff(const MCCFRState& state,
               const std::array<int,2>& player0hand,
               const std::array<int,2>& player1hand,
-              const std::vector<int>& board) {
+              const std::array<int, 5>& board) {
 
     // pot is the sum of what the two players have already contributed
     int pot = state.player0Contribution + state.player1Contribution;
@@ -165,3 +176,4 @@ int getPayoff(const MCCFRState& state,
 }
 
 }
+
