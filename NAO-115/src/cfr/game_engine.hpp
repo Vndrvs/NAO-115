@@ -42,7 +42,7 @@ Returns the payoff for the ORIGINAL hero (player 0) at a terminal node.
 int getPayoff(const MCCFRState& state,
               const std::array<int,2>& player0hand,
               const std::array<int,2>& player1hand,
-              const std::vector<int>& board);
+              const std::array<int, 5>& board);
 
 /*
 Switch the current player — swap hero/villain fields.
