@@ -4,6 +4,7 @@
 #include "bet-abstraction/bet_sequence.hpp"
 #include <cassert>
 #include <algorithm>
+#include <array>
 
 namespace GameEngine {
 
