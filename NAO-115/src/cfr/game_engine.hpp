@@ -2,6 +2,7 @@
 
 #include "mccfr_state.hpp"
 #include "bet-abstraction/bet_sequence.hpp"
+#include <array>
 
 namespace GameEngine {
 
