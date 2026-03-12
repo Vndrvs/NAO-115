@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-project(NAO-115)
+project(NaoLimitPoker LANGUAGES CXX C)
 
 # Set C++ Standard
 set(CMAKE_CXX_STANDARD 20)
@@ -16,7 +16,7 @@ FetchContent_MakeAvailable(googletest)
 
 
 # Find all source files
-file(GLOB_RECURSE SOURCE_FILES "NAO-115/src/*.cpp" "NAO-115/src/*.hpp" "NAO-115/src/*.h")
+file(GLOB_RECURSE SOURCE_FILES "NAO-115/src/*.cpp" "NAO-115/src/*.hpp" "NAO-115/src/*.h" "NAO-115/src/*.c")
 
 list(FILTER SOURCE_FILES EXCLUDE REGEX "NAO-115/src/main.cpp")
 list(FILTER SOURCE_FILES EXCLUDE REGEX "NAO-115/src/benchmark/.*")
