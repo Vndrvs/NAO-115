@@ -76,7 +76,6 @@ googletest/
 
 # Compiled binaries
 *.bin
-centroids.dat
 
 # Coverage and Testing
 *.gcda
