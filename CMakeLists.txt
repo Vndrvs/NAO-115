@@ -37,29 +37,41 @@ endforeach()
 add_library(nao_core ${SOURCE_FILES})
 target_include_directories(nao_core PUBLIC "NAO-115/src")
 
-# OpenMP support for AppleClang (macOS)
+# OpenMP support
 if(APPLE)
+    # AppleClang does not ship OpenMP, so we use Homebrew libomp
     find_library(LIBOMP_LIB omp HINTS /opt/homebrew/opt/libomp/lib)
+    find_path(LIBOMP_INCLUDE_DIR omp.h HINTS /opt/homebrew/opt/libomp/include)
 
     target_compile_options(nao_core
         PUBLIC
             -Xpreprocessor -fopenmp
-            -I/opt/homebrew/opt/libomp/include
+    )
+
+    target_include_directories(nao_core
+        PUBLIC
+            ${LIBOMP_INCLUDE_DIR}
     )
 
     target_link_libraries(nao_core
         PUBLIC
             ${LIBOMP_LIB}
     )
+
 else()
+    # Linux / GCC / Clang with native OpenMP
     find_package(OpenMP REQUIRED)
 
     target_link_libraries(nao_core
         PUBLIC
             OpenMP::OpenMP_CXX
     )
-endif()
 
+    target_compile_options(nao_core
+        PUBLIC
+            ${OpenMP_CXX_FLAGS}
+    )
+endif()
 
 # The Game/Solver
 add_executable(nao_run "NAO-115/src/main.cpp")
@@ -77,7 +89,7 @@ add_test(NAME NaoTests COMMAND nao_tests)
 # Bucketer Tests
 add_executable(bucketer_tests "NAO-115_Tests/bucketer/test_bucketer.cpp")
 target_link_libraries(bucketer_tests PRIVATE nao_core GTest::gtest_main)
-add_test(NAME BucketerTests COMMAND bucketser_tests)
+add_test(NAME BucketerTests COMMAND bucketer_tests)
 
 # Evaluator Tests
 add_executable(evaluator_tests "NAO-115_Tests/evaluator/test_evaluator.cpp")

@@ -8,6 +8,9 @@
 #include <fstream>
 #include <vector>
 #include <array>
+#include <atomic>
+#include <omp.h>
+
 #include "generate_luts.hpp"
 #include "bucketer.hpp"
 
@@ -19,35 +22,45 @@ void generateFlopLUT(IsomorphismEngine& isomorphismEngine) {
 
     std::vector<uint16_t> lut(max_idx);
 
+    std::atomic<uint64_t> progress{0};
+
+    #pragma omp parallel for schedule(static)
     for (uint64_t i = 0; i < max_idx; ++i) {
+
         std::array<uint8_t, 5> waugh_cards = isomorphismEngine.unindexFlop(i);
-        
-        // 1:1 map cards
+
         std::array<int, 2> hand = {
             static_cast<int>(waugh_cards[0]),
             static_cast<int>(waugh_cards[1])
         };
-        
+
         std::array<int, 3> board = {
             static_cast<int>(waugh_cards[2]),
             static_cast<int>(waugh_cards[3]),
             static_cast<int>(waugh_cards[4])
         };
 
-        uint16_t bucket_id = static_cast<uint16_t>(Bucketer::get_flop_bucket(hand, board));
-        
+        uint16_t bucket_id =
+            static_cast<uint16_t>(Bucketer::get_flop_bucket(hand, board));
+
         lut[i] = bucket_id;
 
-        if ((i + 1) % 1000 == 0) {
-            std::cout << "Processed " << (i + 1) << " / " << max_idx << " flops...\n";
+        uint64_t p = ++progress;
+        if (p % 100000 == 0) {
+            #pragma omp critical
+            {
+                std::cout << "Processed " << p << " / " << max_idx << " flops\n";
+            }
         }
     }
 
     std::ofstream out("flop_buckets.lut", std::ios::binary);
     out.write(reinterpret_cast<const char*>(lut.data()), lut.size() * sizeof(uint16_t));
     out.close();
-    std::cout << "SUCCESS: Saved Flop LUT (2.5 MB) to disk!\n";
+
+    std::cout << "SUCCESS: Saved Flop LUT to disk!\n";
 }
+
 
 int main() {
     Bucketer::initialize();
