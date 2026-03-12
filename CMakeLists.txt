@@ -88,3 +88,7 @@ add_test(NAME EvaluatorTests COMMAND evaluator_tests)
 add_executable(bet_abstraction_tests "NAO-115_Tests/bet-abstraction/test_bet_abstraction.cpp")
 target_link_libraries(bet_abstraction_tests PRIVATE nao_core GTest::gtest_main)
 add_test(NAME BetAbstractionTests COMMAND bet_abstraction_tests)
+
+# LUT generation
+add_executable(generate_luts "NAO-115/src/hand-bucketing/generate_luts.cpp")
+target_link_libraries(generate_luts PRIVATE nao_core)
