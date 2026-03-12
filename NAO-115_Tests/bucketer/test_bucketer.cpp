@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
 #include "hand-bucketing/bucketer.hpp"
 #include "hand-bucketing/hand_abstraction.hpp"
+#include "hand-bucketing/generate_luts.hpp"
+
 #include "eval/evaluator.hpp"
 #include "eval/tables.hpp"
 
@@ -13,125 +15,120 @@
 #include <random>
 #include <filesystem>
 #include <limits>
+#include <iostream>
+#include <fstream>
+#include <vector>
+#include <array>
+#include <cassert>
+#include <atomic>
 
-static void draw_hand_board(
-    std::mt19937& rng,
-    std::uniform_int_distribution<int>& dist,
-    std::vector<int>& hand,
-    std::vector<int>& board,
-    int boardSize)
-{
-    uint64_t used = 0;
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
-    hand.clear();
-    board.clear();
+using namespace Bucketer;
 
-    while ((int)(hand.size() + board.size()) < 2 + boardSize) {
-        int card = dist(rng);
+void testDynamicBucketer(IsomorphismEngine& isoEngine) {
+    std::cout << "\n--- STEP 1: PRE-TESTING DYNAMIC BUCKETER ---\n";
+    
+    uint64_t test_idx = 500000;
+    std::array<uint8_t, 5> waugh_cards = isoEngine.unindexFlop(test_idx);
+    
+    std::array<int, 2> hand = { static_cast<int>(waugh_cards[0]), static_cast<int>(waugh_cards[1]) };
+    std::array<int, 3> board = { static_cast<int>(waugh_cards[2]), static_cast<int>(waugh_cards[3]), static_cast<int>(waugh_cards[4]) };
+    
+    std::cout << "Testing Waugh Index: " << test_idx << "\n";
+    std::cout << "Hand (0-51 ints) : [" << hand[0] << ", " << hand[1] << "]\n";
+    std::cout << "Board (0-51 ints): [" << board[0] << ", " << board[1] << ", " << board[2] << "]\n";
+    
+    uint16_t bucket_id = static_cast<uint16_t>(Bucketer::get_flop_bucket(hand, board));
+    std::cout << "SUCCESS! Dynamically Assigned Flop Bucket: " << bucket_id << "\n";
+}
 
-        if (!(used & (1ULL << card))) {
-            used |= (1ULL << card);
-
-            if (hand.size() < 2)
-                hand.push_back(card);
-            else
-                board.push_back(card);
+void generateFlopLUT(IsomorphismEngine& isoEngine) {
+    uint64_t max_idx = isoEngine.getFlopCombinations();
+    std::cout << "\n--- STEP 2: GENERATING FLOP LUT (" << max_idx << " combinations) ---\n";
+    
+    std::atomic<int> processed_count(0);
+    std::vector<uint16_t> lut(max_idx);
+    
+#pragma omp parallel for
+    for (uint64_t i = 0; i < max_idx; ++i) {
+        std::array<uint8_t, 5> waugh_cards = isoEngine.unindexFlop(i);
+        
+        std::array<int, 2> hand = { static_cast<int>(waugh_cards[0]), static_cast<int>(waugh_cards[1]) };
+        std::array<int, 3> board = { static_cast<int>(waugh_cards[2]), static_cast<int>(waugh_cards[3]), static_cast<int>(waugh_cards[4]) };
+        
+        lut[i] = static_cast<uint16_t>(Bucketer::get_flop_bucket(hand, board));
+        
+        int current_count = ++processed_count;
+        if (i % 1000 == 0) {
+#pragma omp critical
+            std::cout << "Processed " << i << " / " << max_idx << "\n";
         }
+    }
+    
+    std::ofstream out("flop_buckets.lut", std::ios::binary);
+    out.write(reinterpret_cast<const char*>(lut.data()), lut.size() * sizeof(uint16_t));
+    out.close();
+    std::cout << "SUCCESS: Saved 'flop_buckets.lut' to disk!\n";
+}
+
+void verifyLUT(IsomorphismEngine& isoEngine) {
+    std::cout << "\n--- STEP 3: VERIFYING LUT MATCHES DYNAMIC CALCULATION ---\n";
+    
+    std::ifstream in("flop_buckets.lut", std::ios::binary);
+    if (!in) {
+        std::cout << "ERROR: LUT file not found!\n";
+        return;
+    }
+    
+    // Determine file size and load into memory
+    in.seekg(0, std::ios::end);
+    size_t size = in.tellg();
+    in.seekg(0, std::ios::beg);
+    std::vector<uint16_t> lut(size / sizeof(uint16_t));
+    in.read(reinterpret_cast<char*>(lut.data()), size);
+    in.close();
+    
+    // Check a few edge cases and random indices
+    std::vector<uint64_t> test_indices = {0, 100, 500000, 1000000, isoEngine.getFlopCombinations() - 1};
+    
+    bool all_passed = true;
+    for (uint64_t idx : test_indices) {
+        std::array<uint8_t, 5> waugh_cards = isoEngine.unindexFlop(idx);
+        std::array<int, 2> hand = { static_cast<int>(waugh_cards[0]), static_cast<int>(waugh_cards[1]) };
+        std::array<int, 3> board = { static_cast<int>(waugh_cards[2]), static_cast<int>(waugh_cards[3]), static_cast<int>(waugh_cards[4]) };
+        
+        uint16_t dynamic_bucket = static_cast<uint16_t>(Bucketer::get_flop_bucket(hand, board));
+        uint16_t lut_bucket = lut[idx];
+        
+        if (dynamic_bucket != lut_bucket) {
+            std::cout << "MISMATCH at index " << idx << "! Dynamic: " << dynamic_bucket << " | LUT: " << lut_bucket << "\n";
+            all_passed = false;
+        } else {
+            std::cout << "Index " << idx << " verified perfectly. (Bucket: " << lut_bucket << ")\n";
+        }
+    }
+    
+    if (all_passed) {
+        std::cout << "SUCCESS: LUT lookups perfectly match dynamic calculations!\n\n";
     }
 }
 
 int main() {
-
-    const int TESTS = 10000;
-
-    std::mt19937 rng(42);
-    std::uniform_int_distribution<int> dist(0, 51);
-    std::uniform_int_distribution<int> streetDist(0, 3);
-
-    std::vector<int> hand;
-    std::vector<int> board;
-
-    int flopCount = 0;
-    int turnCount = 0;
-    int riverCount = 0;
-
-    double flopTime  = 0.0;
-    double turnTime  = 0.0;
-    double riverTime = 0.0;
-
-    for (int i = 0; i < TESTS; i++) {
-
-        int street = streetDist(rng);
-
-        if (street == 0) {
-            draw_hand_board(rng, dist, hand, board, 0);
-        }
-        else if (street == 1) {
-            draw_hand_board(rng, dist, hand, board, 3);
-        }
-        else if (street == 2) {
-            draw_hand_board(rng, dist, hand, board, 4);
-        }
-        else {
-            draw_hand_board(rng, dist, hand, board, 5);
-        }
-
-        auto start = std::chrono::high_resolution_clock::now();
-
-        int bucket = Bucketer::get_bucket(hand, board);
-
-        auto end = std::chrono::high_resolution_clock::now();
-
-        double dt =
-            std::chrono::duration<double>(end - start).count();
-
-        if (bucket < 0 || bucket >= 1000) {
-            std::cerr << "Invalid bucket: " << bucket << std::endl;
-            return 1;
-        }
-
-        if (board.size() == 3) {
-            flopTime += dt;
-            flopCount++;
-        }
-        else if (board.size() == 4) {
-            turnTime += dt;
-            turnCount++;
-        }
-        else if (board.size() == 5) {
-            riverTime += dt;
-            riverCount++;
-        }
-    }
-
-    std::cout << "\n=== Bucket Lookup Timing ===\n\n";
-
-    if (flopCount > 0) {
-        double avg = flopTime / flopCount;
-        std::cout << "Flop:\n";
-        std::cout << "  Calls: " << flopCount << "\n";
-        std::cout << "  Avg time: " << avg * 1000 << " ms ("
-                  << avg * 1e6 << " us)\n";
-        std::cout << "  Speed: " << (1.0 / avg) << " /sec\n\n";
-    }
-
-    if (turnCount > 0) {
-        double avg = turnTime / turnCount;
-        std::cout << "Turn:\n";
-        std::cout << "  Calls: " << turnCount << "\n";
-        std::cout << "  Avg time: " << avg * 1000 << " ms ("
-                  << avg * 1e6 << " us)\n";
-        std::cout << "  Speed: " << (1.0 / avg) << " /sec\n\n";
-    }
-
-    if (riverCount > 0) {
-        double avg = riverTime / riverCount;
-        std::cout << "River:\n";
-        std::cout << "  Calls: " << riverCount << "\n";
-        std::cout << "  Avg time: " << avg * 1000 << " ms ("
-                  << avg * 1e6 << " us)\n";
-        std::cout << "  Speed: " << (1.0 / avg) << " /sec\n\n";
-    }
-
+    // 1. Initialize global states
+    Eval::initialize();
+    Bucketer::initialize();
+    
+    // 2. Initialize Waugh's isomorphism combinatorics
+    IsomorphismEngine isoEngine;
+    isoEngine.initialize();
+    
+    // 3. Run the pipeline
+    testDynamicBucketer(isoEngine);
+    generateFlopLUT(isoEngine);
+    verifyLUT(isoEngine);
+    
     return 0;
 }

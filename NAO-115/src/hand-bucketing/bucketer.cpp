@@ -82,51 +82,6 @@ std::string get_timestamp_suffix() {
     return oss.str();
 }
 
-// PREFLOP
-int get_preflop_bucket(const std::vector<int>& h) {
-    int r1 = h[0] / 4, r2 = h[1] / 4;
-    int s1 = h[0] % 4, s2 = h[1] % 4;
-    int hi = std::max(r1, r2);
-    int lo = std::min(r1, r2);
-    
-    if (hi == lo) {
-        return hi;
-    }
-    
-    int idx = hi * (hi - 1) / 2 + lo;
-    
-    if (s1 == s2) {
-        return 13 + idx;
-    } else {
-        return 91 + idx;
-    }
-}
-
-// CALCULATE FLOP AND TURN FEATURES
-void get_features_dynamic(
-    const std::vector<int>& hand,
-    const std::vector<int>& board,
-    float* out) {
-    std::array<int, 2> hand_arr = { hand[0], hand[1] };
-    
-    if (board.size() == 3) {
-        std::array<int,3> board_arr = { board[0], board[1], board[2] };
-        Eval::FlopFeatures f = Eval::calculateFlopFeaturesTwoAhead(hand_arr, board_arr);
-        
-        out[0] = f.ehs;
-        out[1] = f.asymmetry;
-        out[2] = f.nutPotential;
-    }
-    else if (board.size() == 4) {
-        std::array<int,4> board_arr = { board[0], board[1], board[2], board[3] };
-        Eval::TurnFeatures f = Eval::calculateTurnFeatures(hand_arr, board_arr);
-        
-        out[0] = f.ehs;
-        out[1] = f.asymmetry;
-        out[2] = f.nutPotential;
-    }
-}
-
 // NORMALIZATION
 void compute_stats(const std::vector<std::vector<float>>& data, std::vector<std::array<float,2>>& stats) {
     const size_t n = data.size();
@@ -552,7 +507,6 @@ void generate_centroids() {
 }
 
 // runtime
-
 template<int DIM>
 int nearest_centroid(const float* f, const float* cents, int k) {
     int best = 0;
@@ -588,7 +542,7 @@ void initialize() {
 
     for (int s = 0; s < 3; s++) {
         int k, dim;
-        in.read((char*)&k,   sizeof(int));
+        in.read((char*)&k, sizeof(int));
         in.read((char*)&dim, sizeof(int));
         std::cout << "street=" << s << " k=" << k << " dim=" << dim
                   << " max_index=" << (k-1)*dim+dim-1 << std::endl;
@@ -605,54 +559,101 @@ void initialize() {
             in.read((char*)&bucketData.centroids[s][c * dim], dim * sizeof(float));
         }
     }
-
     initialized = true;
 }
 
-void get_features_river_runtime(const std::vector<int>& hand, const std::vector<int>& board, float* out) {
-    std::array<int, 2> h = { hand[0], hand[1] };
-    std::array<int, 5> b = { board[0], board[1], board[2], board[3], board[4] };
-
-    Eval::RiverFeatures f = Eval::calculateRiverFeatures(h, b);
-    out[0] = f.equityTotal;
-    out[1] = f.equityVsStrong;
-    out[2] = f.equityVsWeak;
-    out[3] = f.blockerIndex;
+int get_preflop_bucket(const std::array<int, 2>& hand) {
+    int rank1 = hand[0] / 4;
+    int rank2 = hand[1] / 4;
+    int suit1 = hand[0] % 4;
+    int suit2 = hand[1] % 4;
+    int hi = std::max(rank1, rank2);
+    int lo = std::min(rank1, rank2);
+    
+    if (hi == lo) {
+        return hi;
+    }
+    
+    int idx = hi * (hi - 1) / 2 + lo;
+    
+    if (suit1 == suit2) {
+        return 13 + idx;
+    } else {
+        return 91 + idx;
+    }
 }
 
-int get_bucket(const std::vector<int>& h, const std::vector<int>& b) {
-    if (b.empty()) {
-        return get_preflop_bucket(h);
+int get_flop_bucket(const std::array<int, 2>& hand, const std::array<int, 3>& board) {
+    
+    int street = 0;
+    int dimensions = 3;
+    int k = bucketData.numCentroids[street];
+    
+    // compute raw features
+    float fv[3];
+    Eval::FlopFeatures features = Eval::calculateFlopFeaturesTwoAhead(hand, board);
+    
+    fv[0] = features.ehs;
+    fv[1] = features.asymmetry;
+    fv[2] = features.nutPotential;
+    
+    float f[3];
+    for (int i = 0; i < dimensions; i++) {
+        float s = bucketData.stddevs[street][i];
+        f[i] = s > 1e-9f ? (fv[i] - bucketData.means[street][i]) / s : 0.f;
     }
-    if (!initialized) initialize();
+    
+    const float* cents = bucketData.centroids[street];
+    return nearest_centroid<3>(f, cents, k);
+}
 
-    int st  = b.size()==3 ? 0 : b.size()==4 ? 1 : 2;
-    int dim = bucketData.numFeatures[st];
-    int k   = bucketData.numCentroids[st];
+int get_turn_bucket(const std::array<int, 2>& hand, const std::array<int, 4>& board) {
+    
+    int street = 1;
+    int dimensions = 3;
+    int k = bucketData.numCentroids[street];
+    
+    // compute raw features
+    float fv[3];
+    Eval::TurnFeatures features = Eval::calculateTurnFeatures(hand, board);
+    
+    fv[0] = features.ehs;
+    fv[1] = features.asymmetry;
+    fv[2] = features.nutPotential;
+    
+    float f[3];
+    for (int i = 0; i < dimensions; i++) {
+        float s = bucketData.stddevs[street][i];
+        f[i] = s > 1e-9f ? (fv[i] - bucketData.means[street][i]) / s : 0.f;
+    }
+    
+    const float* cents = bucketData.centroids[street];
+    return nearest_centroid<3>(f, cents, k);
+}
 
+int get_river_bucket(const std::array<int, 2>& hand, const std::array<int, 5>& board) {
+    
+    int street = 2;
+    int dimensions = 4;
+    int k = bucketData.numCentroids[street];
+    
     // compute raw features
     float fv[4];
-
-    if (st == 2) { // river case point to river runtime
-        get_features_river_runtime(h, b, fv);
-    }
-    else { // other postflops to dynamic
-        get_features_dynamic(h, b, fv);
-    }
-    // normalize
+    Eval::RiverFeatures features = Eval::calculateRiverFeatures(hand, board);
+    
+    fv[0] = features.equityTotal;
+    fv[1] = features.equityVsStrong;
+    fv[2] = features.equityVsWeak;
+    fv[3] = features.blockerIndex;
+    
     float f[4];
-    for (int i = 0; i < dim; i++) {
-        float s = bucketData.stddevs[st][i];
-        f[i] = s > 1e-9f ? (fv[i] - bucketData.means[st][i]) / s : 0.f;
+    for (int i = 0; i < dimensions; i++) {
+        float s = bucketData.stddevs[street][i];
+        f[i] = s > 1e-9f ? (fv[i] - bucketData.means[street][i]) / s : 0.f;
     }
-
-    const float* cents = bucketData.centroids[st];
-    if (st == 2) {
-        return nearest_centroid<4>(f, cents, k);
-    }
-    else {
-        return nearest_centroid<3>(f, cents, k);
-    }
+    
+    const float* cents = bucketData.centroids[street];
+    return nearest_centroid<4>(f, cents, k);
 }
 
 }

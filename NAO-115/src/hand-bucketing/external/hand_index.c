@@ -1,3 +1,10 @@
+/**
+ * hand_index.c
+ *
+ * @author Kevin Waugh (waugh@cs.cmu.edu)
+ * @date April 13, 2013
+ */
+
 #include <assert.h>
 #include <math.h>
 #include <stdbool.h>

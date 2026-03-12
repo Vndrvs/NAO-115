@@ -87,8 +87,5 @@ googletest/
 # Ignore CMake generated files
 CMakeLists.txt.user
 
-# Igore source files
-**/centroids.dat
-
-# Ignore output files
-**/output/
+# Ignore output log files
+**/output/logs/

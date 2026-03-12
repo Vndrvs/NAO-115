@@ -1,3 +1,10 @@
+/**
+ * check-main.c
+ *
+ * @author Kevin Waugh (waugh@cs.cmu.edu)
+ * @date April 13, 2013
+ */
+
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
