@@ -1,7 +1,7 @@
 #pragma once
 
-#include "hand-bucketing/generate_luts.hpp"
-#include "hand-bucketing/lut_manager.hpp"
+#include "../src/hand-bucketing/mapping_engine.hpp"
+#include "lut_manager.hpp"
 
 namespace Bucketer {
 
@@ -18,10 +18,10 @@ int lookup_bucket(IsomorphismEngine& mappingEngine,
                   const int* board,
                   int boardSize);
 
-// Wrapper for the Preflop logic to handle the pointer-to-array conversion
+// wrapper for the Preflop logic to handle the pointer-to-array conversion
 int get_preflop_bucket_raw(const int* hand);
 
-// Wrapper for the River logic to handle the pointer-to-array conversion
+// wrapper for the River logic to handle the pointer-to-array conversion
 int get_river_bucket_raw(const int* hand, const int* board);
 
 }

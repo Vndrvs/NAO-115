@@ -10,6 +10,7 @@
 #include <array>
 #include <atomic>
 #include <omp.h>
+#include <string>
 
 #include "mapping_engine.hpp"
 #include "bucketer.hpp"
@@ -20,53 +21,113 @@ using namespace Bucketer;
 void generateFlopLUT(IsomorphismEngine& isomorphismEngine) {
     uint64_t max_idx = isomorphismEngine.getFlopCombinations();
     std::cout << "Generating Flop LUT for " << max_idx << " isomorphic combinations...\n";
-
+    
     std::vector<uint16_t> lut(max_idx);
-
+    
     std::atomic<uint64_t> progress{0};
-
-    #pragma omp parallel for schedule(static)
+    
+#pragma omp parallel for schedule(static)
     for (uint64_t i = 0; i < max_idx; ++i) {
-
+        
         std::array<uint8_t, 5> waugh_cards = isomorphismEngine.unindexFlop(i);
-
+        
         std::array<int, 2> hand = {
             static_cast<int>(waugh_cards[0]),
             static_cast<int>(waugh_cards[1])
         };
-
+        
         std::array<int, 3> board = {
             static_cast<int>(waugh_cards[2]),
             static_cast<int>(waugh_cards[3]),
             static_cast<int>(waugh_cards[4])
         };
-
+        
         uint16_t bucket_id = static_cast<uint16_t>(Bucketer::get_flop_bucket(hand, board));
-
+        
         lut[i] = bucket_id;
-
+        
         uint64_t p = ++progress;
-        if (p % 100000 == 0) {
-            #pragma omp critical
+        if (p % 1000 == 0) {
+#pragma omp critical
             {
                 std::cout << "Processed " << p << " / " << max_idx << " flops\n";
             }
         }
     }
-
+    
     std::ofstream out("flop_buckets.lut", std::ios::binary);
     out.write(reinterpret_cast<const char*>(lut.data()), lut.size() * sizeof(uint16_t));
     out.close();
-
+    
     std::cout << "SUCCESS: Saved Flop LUT to disk!\n";
+}
+
+void generateTurnLUT(IsomorphismEngine& isomorphismEngine, uint64_t test_limit = 0) {
+    
+    uint64_t max_idx = isomorphismEngine.getTurnCombinations();
+    
+    if (test_limit > 0 && test_limit < max_idx) {
+        max_idx = test_limit;
+        std::cout << "--- TEST MODE: Clamping Turn loop to " << max_idx << " hands ---\n";
+    }
+    
+    std::cout << "Generating Turn LUT for " << max_idx << " isomorphic combinations...\n";
+    
+    std::vector<uint16_t> lut(max_idx);
+    std::atomic<uint64_t> progress{0};
+    
+#pragma omp parallel for schedule(static)
+    for (uint64_t i = 0; i < max_idx; ++i) {
+        
+        std::array<uint8_t, 6> waugh_cards = isomorphismEngine.unindexTurn(i);
+        
+        std::array<int, 2> hand = {
+            static_cast<int>(waugh_cards[0]),
+            static_cast<int>(waugh_cards[1])
+        };
+        
+        std::array<int, 4> board = {
+            static_cast<int>(waugh_cards[2]),
+            static_cast<int>(waugh_cards[3]),
+            static_cast<int>(waugh_cards[4]),
+            static_cast<int>(waugh_cards[5])
+        };
+        
+        uint16_t bucket_id = static_cast<uint16_t>(Bucketer::get_turn_bucket(hand, board));
+        
+        lut[i] = bucket_id;
+        
+        uint64_t p = ++progress;
+        
+        uint64_t print_interval = (test_limit > 0) ? 10 : 100000;
+        if (p % print_interval == 0) {
+#pragma omp critical
+            {
+                std::cout << "Processed " << p << " / " << max_idx << " turns\n";
+            }
+        }
+    }
+    
+    std::string out_path = (test_limit > 0) ? "turn_buckets_mini.lut" : "turn_buckets.lut";
+    std::ofstream out(out_path, std::ios::binary);
+    out.write(reinterpret_cast<const char*>(lut.data()), lut.size() * sizeof(uint16_t));
+    out.close();
+    
+    std::cout << "SUCCESS: Saved Turn LUT to disk as " << out_path << "!\n";
 }
 
 
 int main() {
+    // Hardcode the limit for our Xcode test
+    uint64_t limit = 0;
+
+    std::cout << "--- INITIALIZING ENGINES ---\n";
     Eval::initialize();
     Bucketer::initialize();
-    IsomorphismEngine isomorphismEngine;
-    isomorphismEngine.initialize();
-    generateFlopLUT(isomorphismEngine);
+    IsomorphismEngine isoEngine;
+    isoEngine.initialize();
+    
+    // 1. Run the Turn generator (clamped to 100 hands)
+    generateTurnLUT(isoEngine, limit);
     return 0;
 }
