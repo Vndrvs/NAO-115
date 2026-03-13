@@ -11,8 +11,9 @@
 #include <atomic>
 #include <omp.h>
 
-#include "generate_luts.hpp"
+#include "mapping_engine.hpp"
 #include "bucketer.hpp"
+#include "eval/evaluator.hpp"
 
 using namespace Bucketer;
 
@@ -40,8 +41,7 @@ void generateFlopLUT(IsomorphismEngine& isomorphismEngine) {
             static_cast<int>(waugh_cards[4])
         };
 
-        uint16_t bucket_id =
-            static_cast<uint16_t>(Bucketer::get_flop_bucket(hand, board));
+        uint16_t bucket_id = static_cast<uint16_t>(Bucketer::get_flop_bucket(hand, board));
 
         lut[i] = bucket_id;
 
@@ -63,10 +63,10 @@ void generateFlopLUT(IsomorphismEngine& isomorphismEngine) {
 
 
 int main() {
+    Eval::initialize();
     Bucketer::initialize();
     IsomorphismEngine isomorphismEngine;
     isomorphismEngine.initialize();
-
     generateFlopLUT(isomorphismEngine);
     return 0;
 }

@@ -15,8 +15,8 @@ struct BucketData {
     float centroids[3][2000 * 4];
     float means[3][4];
     float stddevs[3][4];
-    int   numCentroids[3];
-    int   numFeatures[3];
+    int numCentroids[3];
+    int numFeatures[3];
 };
 
 extern BucketData bucketData;
@@ -27,15 +27,14 @@ std::vector<std::vector<float>> kmeans(const std::vector<std::vector<float>>& da
 void prepare_filesystem();
 void generate_centroids();
 
-
 // runtime lookups
 void initialize();
-int get_preflop_bucket(const std::vector<int>& h);
-std::vector<float> get_features_dynamic(const std::vector<int>& hand, const std::vector<int>& board);
+int get_preflop_bucket(const std::array<int, 2>& hand);
+int get_river_bucket(const std::array<int, 2>& hand, const std::array<int, 5>& board);
+
 // LUT table helpers
 int get_flop_bucket(const std::array<int, 2>& hand, const std::array<int, 3>& board);
 int get_turn_bucket(const std::array<int, 2>& hand, const std::array<int, 4>& board);
-int get_river_bucket(const std::array<int, 2>& hand, const std::array<int, 5>& board);
 
 // analysis
 class DataDistributionLogger;

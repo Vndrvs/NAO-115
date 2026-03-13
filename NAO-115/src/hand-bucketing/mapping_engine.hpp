@@ -69,7 +69,6 @@ public:
         return cards;
     }
 
-    // Convert Waugh's index back into physical cards for the Turn (6 cards)
     std::array<uint8_t, 6> unindexTurn(uint64_t idx) const {
         std::array<uint8_t, 6> cards;
         hand_unindex(&turn_indexer, 1, idx, cards.data());

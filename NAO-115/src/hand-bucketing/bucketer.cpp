@@ -534,7 +534,7 @@ void initialize() {
     }
     std::cout << "initialize called\n";
 
-    std::ifstream in("output/data/centroids.dat", std::ios::binary);
+    std::ifstream in("output/data/centroids/centroids.dat", std::ios::binary);
     if (!in.is_open()) {
         std::cerr << "Error: Could not open centroids.dat\n";
         exit(1);

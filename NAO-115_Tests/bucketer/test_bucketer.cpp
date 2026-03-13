@@ -1,134 +1,110 @@
-#include <gtest/gtest.h>
+#include <iostream>
+#include <fstream>
+#include <vector>
+#include <string>
+#include <array>
+#include "hand-bucketing/mapping_engine.hpp"
 #include "hand-bucketing/bucketer.hpp"
-#include "hand-bucketing/hand_abstraction.hpp"
-#include "hand-bucketing/generate_luts.hpp"
-
 #include "eval/evaluator.hpp"
-#include "eval/tables.hpp"
 
-#include <cmath>
+// Helper function to auto-find the file based on common execution directories
+std::string find_lut_file() {
+    std::vector<std::string> possible_paths = {
+        "output/data/luts/flop_buckets.lut",             // If run from NAO-115 root
+        "../../output/data/luts/flop_buckets.lut",       // If run from NAO-115_tests/bucketer/
+        "../output/data/luts/flop_buckets.lut"           // If run from a top-level build/ folder
+    };
+
+    for (const auto& path : possible_paths) {
+        std::ifstream file(path, std::ios::binary);
+        if (file.good()) {
+            return path; // File found successfully
+        }
+    }
+    return ""; // Not found
+}
+
+#include <iostream>
+#include <fstream>
 #include <vector>
 #include <array>
-#include <fstream>
-#include <iostream>
-#include <chrono>
 #include <random>
-#include <filesystem>
-#include <limits>
-#include <iostream>
-#include <fstream>
-#include <vector>
-#include <array>
-#include <cassert>
-#include <atomic>
-
-#ifdef _OPENMP
-#include <omp.h>
-#endif
-
-using namespace Bucketer;
-
-void testDynamicBucketer(IsomorphismEngine& isoEngine) {
-    std::cout << "\n--- STEP 1: PRE-TESTING DYNAMIC BUCKETER ---\n";
-    
-    uint64_t test_idx = 500000;
-    std::array<uint8_t, 5> waugh_cards = isoEngine.unindexFlop(test_idx);
-    
-    std::array<int, 2> hand = { static_cast<int>(waugh_cards[0]), static_cast<int>(waugh_cards[1]) };
-    std::array<int, 3> board = { static_cast<int>(waugh_cards[2]), static_cast<int>(waugh_cards[3]), static_cast<int>(waugh_cards[4]) };
-    
-    std::cout << "Testing Waugh Index: " << test_idx << "\n";
-    std::cout << "Hand (0-51 ints) : [" << hand[0] << ", " << hand[1] << "]\n";
-    std::cout << "Board (0-51 ints): [" << board[0] << ", " << board[1] << ", " << board[2] << "]\n";
-    
-    uint16_t bucket_id = static_cast<uint16_t>(Bucketer::get_flop_bucket(hand, board));
-    std::cout << "SUCCESS! Dynamically Assigned Flop Bucket: " << bucket_id << "\n";
-}
-
-void generateFlopLUT(IsomorphismEngine& isoEngine) {
-    uint64_t max_idx = isoEngine.getFlopCombinations();
-    std::cout << "\n--- STEP 2: GENERATING FLOP LUT (" << max_idx << " combinations) ---\n";
-    
-    std::atomic<int> processed_count(0);
-    std::vector<uint16_t> lut(max_idx);
-    
-#pragma omp parallel for
-    for (uint64_t i = 0; i < max_idx; ++i) {
-        std::array<uint8_t, 5> waugh_cards = isoEngine.unindexFlop(i);
-        
-        std::array<int, 2> hand = { static_cast<int>(waugh_cards[0]), static_cast<int>(waugh_cards[1]) };
-        std::array<int, 3> board = { static_cast<int>(waugh_cards[2]), static_cast<int>(waugh_cards[3]), static_cast<int>(waugh_cards[4]) };
-        
-        lut[i] = static_cast<uint16_t>(Bucketer::get_flop_bucket(hand, board));
-        
-        int current_count = ++processed_count;
-        if (i % 1000 == 0) {
-#pragma omp critical
-            std::cout << "Processed " << i << " / " << max_idx << "\n";
-        }
-    }
-    
-    std::ofstream out("flop_buckets.lut", std::ios::binary);
-    out.write(reinterpret_cast<const char*>(lut.data()), lut.size() * sizeof(uint16_t));
-    out.close();
-    std::cout << "SUCCESS: Saved 'flop_buckets.lut' to disk!\n";
-}
-
-void verifyLUT(IsomorphismEngine& isoEngine) {
-    std::cout << "\n--- STEP 3: VERIFYING LUT MATCHES DYNAMIC CALCULATION ---\n";
-    
-    std::ifstream in("flop_buckets.lut", std::ios::binary);
-    if (!in) {
-        std::cout << "ERROR: LUT file not found!\n";
-        return;
-    }
-    
-    // Determine file size and load into memory
-    in.seekg(0, std::ios::end);
-    size_t size = in.tellg();
-    in.seekg(0, std::ios::beg);
-    std::vector<uint16_t> lut(size / sizeof(uint16_t));
-    in.read(reinterpret_cast<char*>(lut.data()), size);
-    in.close();
-    
-    // Check a few edge cases and random indices
-    std::vector<uint64_t> test_indices = {0, 100, 500000, 1000000, isoEngine.getFlopCombinations() - 1};
-    
-    bool all_passed = true;
-    for (uint64_t idx : test_indices) {
-        std::array<uint8_t, 5> waugh_cards = isoEngine.unindexFlop(idx);
-        std::array<int, 2> hand = { static_cast<int>(waugh_cards[0]), static_cast<int>(waugh_cards[1]) };
-        std::array<int, 3> board = { static_cast<int>(waugh_cards[2]), static_cast<int>(waugh_cards[3]), static_cast<int>(waugh_cards[4]) };
-        
-        uint16_t dynamic_bucket = static_cast<uint16_t>(Bucketer::get_flop_bucket(hand, board));
-        uint16_t lut_bucket = lut[idx];
-        
-        if (dynamic_bucket != lut_bucket) {
-            std::cout << "MISMATCH at index " << idx << "! Dynamic: " << dynamic_bucket << " | LUT: " << lut_bucket << "\n";
-            all_passed = false;
-        } else {
-            std::cout << "Index " << idx << " verified perfectly. (Bucket: " << lut_bucket << ")\n";
-        }
-    }
-    
-    if (all_passed) {
-        std::cout << "SUCCESS: LUT lookups perfectly match dynamic calculations!\n\n";
-    }
-}
+#include "hand-bucketing/bucketer.hpp"
 
 int main() {
-    // 1. Initialize global states
-    Eval::initialize();
-    Bucketer::initialize();
-    
-    // 2. Initialize Waugh's isomorphism combinatorics
-    IsomorphismEngine isoEngine;
+    std::cout << "--- STARTING PIPELINE TEST ---\n";
+
+    // 1. Initialize EVERYTHING
+    Bucketer::IsomorphismEngine isoEngine;
     isoEngine.initialize();
     
-    // 3. Run the pipeline
-    testDynamicBucketer(isoEngine);
-    generateFlopLUT(isoEngine);
-    verifyLUT(isoEngine);
+    Bucketer::initialize();
     
+    Eval::initialize();
+
+    const size_t FLOP_COMBOS = 1287000;
+    std::vector<uint16_t> mock_lut(FLOP_COMBOS, 0);
+
+    // 2. Pick 1,000 random indices
+    std::cout << "Picking 1000 random hands...\n";
+    std::vector<uint64_t> test_indices;
+    std::mt19937 rng(42); // Fixed seed for reproducibility
+    std::uniform_int_distribution<uint64_t> dist(0, FLOP_COMBOS - 1);
+    
+    for (int i = 0; i < 1000; ++i) {
+        test_indices.push_back(dist(rng));
+    }
+
+    // 3. GENERATION PHASE (What the Droplet does)
+    std::cout << "Calculating buckets for the 1000 hands...\n";
+    for (uint64_t idx : test_indices) {
+        std::array<uint8_t, 5> cards = isoEngine.unindexFlop(idx);
+        std::array<int, 2> hand = { cards[0], cards[1] };
+        std::array<int, 3> board = { cards[2], cards[3], cards[4] };
+        
+        mock_lut[idx] = Bucketer::get_flop_bucket(hand, board);
+    }
+
+    // 4. FILE WRITE PHASE (What the Droplet does)
+    std::string test_file_path = "test_flop_mock.lut";
+    std::cout << "Writing file to disk (" << test_file_path << ")...\n";
+    std::ofstream outfile(test_file_path, std::ios::binary);
+    outfile.write(reinterpret_cast<const char*>(mock_lut.data()), FLOP_COMBOS * sizeof(uint16_t));
+    outfile.close();
+
+    // 5. FILE READ PHASE (What your MCCFR / Local test does)
+    std::cout << "Reading file back from disk...\n";
+    std::vector<uint16_t> loaded_lut(FLOP_COMBOS, 0);
+    std::ifstream infile(test_file_path, std::ios::binary);
+    infile.read(reinterpret_cast<char*>(loaded_lut.data()), FLOP_COMBOS * sizeof(uint16_t));
+    infile.close();
+
+    // 6. VERIFICATION PHASE (Cross-referencing)
+    std::cout << "Cross-validating data integrity...\n";
+    int failures = 0;
+    for (uint64_t idx : test_indices) {
+        std::array<uint8_t, 5> cards = isoEngine.unindexFlop(idx);
+        std::array<int, 2> hand = { cards[0], cards[1] };
+        std::array<int, 3> board = { cards[2], cards[3], cards[4] };
+
+        uint16_t file_bucket = loaded_lut[idx];
+        int dynamic_bucket = Bucketer::get_flop_bucket(hand, board);
+
+        if (file_bucket != dynamic_bucket) {
+            failures++;
+            if (failures <= 5) { // Only print the first few failures to avoid console spam
+                std::cout << "FAIL at Index " << idx
+                          << " | File says: " << file_bucket
+                          << " | Dynamic says: " << dynamic_bucket << "\n";
+            }
+        }
+    }
+
+    if (failures == 0) {
+        std::cout << "\nSUCCESS: All 1,000 hands perfectly matched. The C++ read/write architecture is bulletproof.\n";
+    } else {
+        std::cout << "\nCRITICAL ERROR: " << failures << " mismatches detected. The file saving/loading is corrupt.\n";
+    }
+
     return 0;
 }
