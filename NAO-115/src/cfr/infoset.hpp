@@ -11,7 +11,7 @@ struct InfosetKey {
     uint64_t historyHash;
     int32_t bucketId;
     
-    // Must define equality for the hash map to resolve (the extremely rare) true collisions
+    // define equality for the hash map to resolve collisions
     bool operator==(const InfosetKey& other) const {
         return historyHash == other.historyHash && bucketId == other.bucketId;
     }
