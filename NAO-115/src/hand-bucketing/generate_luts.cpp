@@ -18,18 +18,17 @@
 
 using namespace Bucketer;
 
-void generateFlopLUT(IsomorphismEngine& isomorphismEngine) {
-    uint64_t max_idx = isomorphismEngine.getFlopCombinations();
-    std::cout << "Generating Flop LUT for " << max_idx << " isomorphic combinations...\n";
+void generateFlopLUT(IsomorphismEngine& mappingEngine) {
+    uint64_t max_idx = mappingEngine.getFlopCombinations();
+    std::cout << "Generating Flop LUT for " << max_idx << " combinations...\n";
     
     std::vector<uint16_t> lut(max_idx);
-    
     std::atomic<uint64_t> progress{0};
     
 #pragma omp parallel for schedule(static)
     for (uint64_t i = 0; i < max_idx; ++i) {
         
-        std::array<uint8_t, 5> waugh_cards = isomorphismEngine.unindexFlop(i);
+        std::array<uint8_t, 5> waugh_cards = mappingEngine.unindexFlop(i);
         
         std::array<int, 2> hand = {
             static_cast<int>(waugh_cards[0]),
@@ -47,7 +46,7 @@ void generateFlopLUT(IsomorphismEngine& isomorphismEngine) {
         lut[i] = bucket_id;
         
         uint64_t p = ++progress;
-        if (p % 1000 == 0) {
+        if (p % 100000 == 0) {
 #pragma omp critical
             {
                 std::cout << "Processed " << p << " / " << max_idx << " flops\n";
@@ -59,19 +58,13 @@ void generateFlopLUT(IsomorphismEngine& isomorphismEngine) {
     out.write(reinterpret_cast<const char*>(lut.data()), lut.size() * sizeof(uint16_t));
     out.close();
     
-    std::cout << "SUCCESS: Saved Flop LUT to disk!\n";
+    std::cout << "Saved Flop LUT to disk.\n";
 }
 
-void generateTurnLUT(IsomorphismEngine& isomorphismEngine, uint64_t test_limit = 0) {
+void generateTurnLUT(IsomorphismEngine& mappingEngine) {
     
-    uint64_t max_idx = isomorphismEngine.getTurnCombinations();
-    
-    if (test_limit > 0 && test_limit < max_idx) {
-        max_idx = test_limit;
-        std::cout << "--- TEST MODE: Clamping Turn loop to " << max_idx << " hands ---\n";
-    }
-    
-    std::cout << "Generating Turn LUT for " << max_idx << " isomorphic combinations...\n";
+    uint64_t max_idx = mappingEngine.getTurnCombinations();
+    std::cout << "Generating Turn LUT for " << max_idx << " combinations...\n";
     
     std::vector<uint16_t> lut(max_idx);
     std::atomic<uint64_t> progress{0};
@@ -79,7 +72,7 @@ void generateTurnLUT(IsomorphismEngine& isomorphismEngine, uint64_t test_limit =
 #pragma omp parallel for schedule(static)
     for (uint64_t i = 0; i < max_idx; ++i) {
         
-        std::array<uint8_t, 6> waugh_cards = isomorphismEngine.unindexTurn(i);
+        std::array<uint8_t, 6> waugh_cards = mappingEngine.unindexTurn(i);
         
         std::array<int, 2> hand = {
             static_cast<int>(waugh_cards[0]),
@@ -99,8 +92,7 @@ void generateTurnLUT(IsomorphismEngine& isomorphismEngine, uint64_t test_limit =
         
         uint64_t p = ++progress;
         
-        uint64_t print_interval = (test_limit > 0) ? 10 : 100000;
-        if (p % print_interval == 0) {
+        if (p % 1000000 == 0) {
 #pragma omp critical
             {
                 std::cout << "Processed " << p << " / " << max_idx << " turns\n";
@@ -108,26 +100,21 @@ void generateTurnLUT(IsomorphismEngine& isomorphismEngine, uint64_t test_limit =
         }
     }
     
-    std::string out_path = (test_limit > 0) ? "turn_buckets_mini.lut" : "turn_buckets.lut";
-    std::ofstream out(out_path, std::ios::binary);
+    std::ofstream out("turn_buckets.lut", std::ios::binary);
     out.write(reinterpret_cast<const char*>(lut.data()), lut.size() * sizeof(uint16_t));
     out.close();
     
-    std::cout << "SUCCESS: Saved Turn LUT to disk as " << out_path << "!\n";
+    std::cout << "Saved Turn LUT to disk.\n;
 }
 
 
 int main() {
-    // Hardcode the limit for our Xcode test
-    uint64_t limit = 0;
-
-    std::cout << "--- INITIALIZING ENGINES ---\n";
     Eval::initialize();
     Bucketer::initialize();
-    IsomorphismEngine isoEngine;
-    isoEngine.initialize();
-    
-    // 1. Run the Turn generator (clamped to 100 hands)
-    generateTurnLUT(isoEngine, limit);
+    IsomorphismEngine mappingEngine;
+    mappingEngine.initialize();
+    // uncomment the function that needs to be run ->
+    //generateFlopLUT(mappingEngine);
+    //generateTurnLUT(mappingEngine);
     return 0;
 }

@@ -1,4 +1,3 @@
-
 #include "../include/bucket-lookups/lut_indexer.hpp"
 #include "../include/bucket-lookups/lut_manager.hpp"
 #include "../bucketer.hpp"
@@ -18,10 +17,7 @@ int get_river_bucket_raw(const int* hand, const int* board) {
     return get_river_bucket(handArray, boardArray);
 }
 
-int lookup_bucket(IsomorphismEngine& mappingEngine,
-                  const int* hand,
-                  const int* board,
-                  int boardSize) {
+int lookup_bucket(IsomorphismEngine& mappingEngine, const int* hand, const int* board, int boardSize) {
     switch (boardSize) {
         // preflop route
         case 0: {
@@ -55,7 +51,7 @@ int lookup_bucket(IsomorphismEngine& mappingEngine,
             return get_river_bucket_raw(hand, board);
         }
         default: {
-            std::cerr << "CRITICAL ERROR: Invalid board size passed to lookup_bucket: " << boardSize << "\n";
+            std::cerr << "Error: Invalid board size passed to lookup_bucket: " << boardSize << "\n";
             return -1;
         }
     }
