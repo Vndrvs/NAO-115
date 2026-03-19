@@ -20,6 +20,7 @@ private:
     int totalIterations;
     std::mt19937 rng;
     std::uniform_real_distribution<float> dist;
+    bool traceMode;
 
     // get abstraction bucket for acting player
     int32_t getBucketId(const MCCFRState& state, const std::array<int, 2>& hand, const std::array<int, 5>& board);
@@ -27,6 +28,7 @@ private:
     // recursive tree walk
     float traverseExternalSampling(const MCCFRState& state,
                                     int updatePlayer,
+                                    int iteration,
                                     const std::array<int, 2>& p0_hand,
                                     const std::array<int, 2>& p1_hand,
                                     const std::array<int, 5>& board);
@@ -40,6 +42,19 @@ public:
     // extract final table size after training
     size_t getNumInfosets() const {
         return infosetMap.size();
+    }
+    
+    // testing
+    void setTraceMode(bool enabled) { traceMode = enabled; }
+
+    robin_hood::unordered_flat_map<InfosetKey, Infoset, InfosetKeyHasher>& getInfosetMap() {
+        return infosetMap;
+    }
+
+    int32_t getBucketIdPublic(const MCCFRState& state,
+                                const std::array<int, 2>& hand,
+                              const std::array<int, 5>& board) {
+        return getBucketId(state, hand, board);
     }
 };
 

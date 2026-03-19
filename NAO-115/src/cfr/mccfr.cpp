@@ -6,10 +6,22 @@
 #include <iostream>
 #include <random>
 
+#define DEBUG_BUCKET 0
+
+#define DEBUG_STRATEGY 1
+
+#if DEBUG_STRATEGY
+    #define DEBUG_PRINT(x) std::cout << x << std::endl;
+#else
+    #define DEBUG_PRINT(x)
+#endif
+
 namespace MCCFR {
 
-Trainer::Trainer() : totalIterations(0), rng(1337), dist(0.0f, 1.0f) {
+Trainer::Trainer() : totalIterations(0), rng(1337), dist(0.0f, 1.0f), traceMode(false) {
+    std::cout << "Trainer constructor: calling mappingEngine.initialize()\n";
     mappingEngine.initialize();
+    std::cout << "Trainer constructor: done\n";
 }
 
 int32_t Trainer::getBucketId(const MCCFRState& state,
@@ -26,7 +38,6 @@ int32_t Trainer::getBucketId(const MCCFRState& state,
         boardSize = 5;
     }
     // state.street is 0 (preflop) -> boardSize remains 0
-    
     return Bucketer::lookup_bucket(mappingEngine, hand.data(), board.data(), boardSize);
 }
 
@@ -71,6 +82,21 @@ float Trainer::traverseExternalSampling(const MCCFRState& state,
     float strategy[MAX_ACTIONS];
     infoset.getStrategy(strategy);
     
+    //testing
+    if (traceMode) {
+        std::cout << "[STRAT] street=" << (int)state.street
+                  << " player=" << (int)state.currentPlayer
+                  << " raiseCount=" << (int)state.raiseCount
+                  << " bucket=" << currentBucket
+                  << " actions=" << (int)legalActions.count << "\n";
+        float sum = 0.0f;
+        for (int i = 0; i < legalActions.count; ++i) {
+            std::cout << "  a[" << i << "] = " << strategy[i] << "\n";
+            sum += strategy[i];
+        }
+        std::cout << "  sum = " << sum << "\n";
+    }
+    
     // opponent's turn (external sampling)
     if (state.currentPlayer != updatePlayer) {
         
@@ -112,6 +138,13 @@ float Trainer::traverseExternalSampling(const MCCFRState& state,
     float regrets[MAX_ACTIONS] = {0.0f};
     for (int i = 0; i < legalActions.count; ++i) {
         regrets[i] = actionEVs[i] - nodeEV;
+    }
+    
+    if (traceMode) {
+        std::cout << "[REGRET]\n";
+        for (int i = 0; i < legalActions.count; ++i) {
+            std::cout << "  r[" << i << "] = " << regrets[i] << "\n";
+        }
     }
     infoset.updateRegrets(regrets);
     

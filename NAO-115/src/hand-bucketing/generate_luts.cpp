@@ -106,15 +106,3 @@ void generateTurnLUT(IsomorphismEngine& mappingEngine) {
     
     std::cout << "Saved Turn LUT to disk.\n";
 }
-
-
-int main() {
-    Eval::initialize();
-    Bucketer::initialize();
-    IsomorphismEngine mappingEngine;
-    mappingEngine.initialize();
-    // uncomment the function that needs to be run ->
-    //generateFlopLUT(mappingEngine);
-    //generateTurnLUT(mappingEngine);
-    return 0;
-}

@@ -17,6 +17,7 @@
 #include <ctime>
 #include <filesystem>
 #include <sstream>
+#include "../include/bucket-lookups/lut_manager.hpp"
 
 // I have to compile omp later because I'm building on macOS
 #ifdef _OPENMP
@@ -532,13 +533,22 @@ void initialize() {
     if (initialized) {
         return;
     }
-    std::cout << "initialize called\n";
-
     std::ifstream in("output/data/centroids/centroids.dat", std::ios::binary);
     if (!in.is_open()) {
         std::cerr << "Error: Could not open centroids.dat\n";
         exit(1);
     }
+    
+    bool luts_ok = load_luts(
+        "output/data/luts/flop_buckets.lut",
+        "output/data/luts/turn_buckets.lut"
+    );
+    
+    if (!luts_ok) {
+        std::cerr << "Error: Could not load LUT files\n";
+        exit(1);
+    }
+    std::cout << "LUTs loaded\n";
 
     for (int s = 0; s < 3; s++) {
         int k, dim;

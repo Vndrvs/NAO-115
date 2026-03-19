@@ -92,32 +92,20 @@ ActionList getLegalActions(const MCCFRState& state) {
         arraySize = THREE_BET_COUNT;
     }
     
-    // RAISE SIZING & O(N) DEDUPLICATION
-    int32_t lastAddedAmount = -1;
-    // Open (0) OR First Raise (1) uses the street's base sizes
     for (int i = 0; i < arraySize; ++i) {
         int32_t amount = computeAmount(
-                                    numerators[i], denominators[i],
-                                    state.potBase, state.villainStreetBet,
-                                    state.heroStreetBet, effectiveAllIn
+            numerators[i], denominators[i],
+            state.potBase, state.villainStreetBet,
+            state.heroStreetBet, effectiveAllIn
         );
-    
-        // Filter invalid sizes instantly
-        if (amount < minRaise) continue;
-        if (amount == lastAddedAmount) continue;
-        
+
+        amount = std::max(amount, minRaise);
+        amount = std::min(amount, effectiveAllIn);
         list.add(ActionType::RAISE, amount);
-        lastAddedAmount = amount;
-        
-        // If we naturally hit all-in during generation, halt generation
-        if (amount == effectiveAllIn) {
-            break;
-        }
     }
-    
-    if (lastAddedAmount != effectiveAllIn) {
-        list.add(ActionType::RAISE, effectiveAllIn);
-    }
+
+    // all-in is always the final dedicated slot
+    list.add(ActionType::RAISE, effectiveAllIn);
     
     return list;
 }

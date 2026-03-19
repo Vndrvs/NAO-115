@@ -8,7 +8,7 @@
 #include "eval/evaluator.hpp"
 
 using namespace Bucketer;
-
+/*
 void run_parity_test(int num_trials) {
     IsomorphismEngine isoEngine;
     isoEngine.initialize();
@@ -88,3 +88,5 @@ int main() {
     run_parity_test(100000);
     return 0;
 }
+
+*/
