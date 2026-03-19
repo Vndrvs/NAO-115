@@ -1,7 +1,7 @@
 #include "zobrist.hpp"
 #include <random>
 
-uint64_t Zobrist::TABLE[4][2][5][6];
+uint64_t Zobrist::TABLE[4][2][5][7];
 
 void Zobrist::init() {
     std::mt19937_64 rng(ZOBRIST_SEED);

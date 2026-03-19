@@ -146,7 +146,7 @@ struct MCCFRState {
     /*
     Zobrist hash of the full action history up to this node.
      Updated incrementally via XOR when each action is applied:
-     historyHash ^= Zobrist::TABLE[street][raiseCount][actionIndex]
+     historyHash ^= Zobrist::TABLE[street][currentPlayer][raiseCount][actionIndex]
      Combined with bucketId to form the information set key:
      infosetKey = historyHash ^ ((uint64_t)bucketId << 32)
      (never recomputed from scratch — always updated incrementally)

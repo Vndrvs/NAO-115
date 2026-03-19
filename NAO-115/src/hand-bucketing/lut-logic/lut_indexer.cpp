@@ -6,6 +6,8 @@
 
 namespace Bucketer {
 
+// pointer versions of the original centroid.dat lookups from bucketer.cpp, preflop and river stage
+
 int get_preflop_bucket_raw(const int* hand) {
     std::array<int, 2> handArray = {hand[0], hand[1]};
     return get_preflop_bucket(handArray);
@@ -17,6 +19,7 @@ int get_river_bucket_raw(const int* hand, const int* board) {
     return get_river_bucket(handArray, boardArray);
 }
 
+// combined lookup using LUT system in flop and turn stages
 int lookup_bucket(IsomorphismEngine& mappingEngine, const int* hand, const int* board, int boardSize) {
     switch (boardSize) {
         // preflop route

@@ -104,7 +104,7 @@ void generateTurnLUT(IsomorphismEngine& mappingEngine) {
     out.write(reinterpret_cast<const char*>(lut.data()), lut.size() * sizeof(uint16_t));
     out.close();
     
-    std::cout << "Saved Turn LUT to disk.\n;
+    std::cout << "Saved Turn LUT to disk.\n";
 }
 
 
