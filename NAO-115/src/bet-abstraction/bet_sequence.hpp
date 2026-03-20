@@ -27,6 +27,11 @@ struct ActionList {
     
     // append actions
     inline void add(uint8_t type, int32_t amount) {
+        if (count >= 6) {
+            printf("OVERFLOW: tried to add action %d amount %d at count %d\n",
+                   type, amount, count);
+            std::abort();
+        }
         actions[count++] = {type, amount};
     }
 };

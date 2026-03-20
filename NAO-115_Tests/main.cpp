@@ -1,4 +1,3 @@
-/*
 #include <iostream>
 #include "cfr/mccfr.hpp"
 #include "cfr/zobrist.hpp"
@@ -247,5 +246,5 @@ int main() {
     std::cout << "--- DONE ---\n";
     std::cout << "Infosets: " << trainer.getNumInfosets() << "\n";
     return 0;
+ */
 }
-*/

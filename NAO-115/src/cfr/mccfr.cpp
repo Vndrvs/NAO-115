@@ -75,6 +75,7 @@ float Trainer::traverseExternalSampling(const MCCFRState& state,
     
     BetAbstraction::ActionList legalActions = BetAbstraction::getLegalActions(state);
     
+   
     if (infoset.numActions == 0) {
         infoset.initialize(legalActions.count);
     }
@@ -146,7 +147,7 @@ float Trainer::traverseExternalSampling(const MCCFRState& state,
             std::cout << "  r[" << i << "] = " << regrets[i] << "\n";
         }
     }
-    infoset.updateRegrets(regrets);
+    infosetMap[key].updateRegrets(regrets);
     
     return nodeEV;
 }

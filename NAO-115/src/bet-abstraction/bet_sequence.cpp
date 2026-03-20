@@ -14,100 +14,94 @@ namespace BetAbstraction {
 
 ActionList getLegalActions(const MCCFRState& state) {
     ActionList list;
-    
+ 
+    // need to get effective all in amount first to raise with actual stack, not full default one
     int32_t effectiveAllIn = state.effectiveAllIn();
     int32_t toCall = state.villainStreetBet - state.heroStreetBet;
-    
+ 
     DEBUG_PRINT("Node context | Preflop: " << state.isPreflop()
                 << " | toCall: " << toCall
                 << " | raiseCount: " << (int)state.raiseCount);
-    
-    // BASELINE ACTIONS
-    
-    // facing bet
+ 
+    // this block is responsible for giving the player a chance to react after raisecount has been maxed out
+    if (state.raiseCount >= MAX_RAISES) {
+        if (toCall > 0) {
+            list.add(ActionType::FOLD, 0);
+            list.add(ActionType::CALL, 0);
+        } else {
+            list.add(ActionType::CHECK, 0);
+        }
+        return list;
+    }
+ 
+    // raisecount == 3 - all-in only case
+    if (state.raiseCount == 3) {
+        if (toCall > 0) {
+            list.add(ActionType::FOLD, 0);
+            list.add(ActionType::CALL, 0);
+            list.add(ActionType::RAISE, effectiveAllIn);
+        } else {
+            // this case can basically never occur
+            list.add(ActionType::CHECK, 0);
+            list.add(ActionType::RAISE, effectiveAllIn);
+        }
+        return list;
+    }
+ 
+    // baseline actions that can be added in any scenario
     if (toCall > 0) {
-        // always add Fold and Call
-        DEBUG_PRINT("Facing bet of " << toCall << ", adding Fold and Call.");
         list.add(ActionType::FOLD, 0);
         list.add(ActionType::CALL, 0);
-            
-        // game is all-in / the bet we are facing puts us all-in, we cannot raise
-        if (state.anyAllIn() || effectiveAllIn <= state.villainStreetBet) {
-            DEBUG_PRINT("Stack capped, returning early.");
-            return list;
-        }
-        // not facing bet
     } else {
-        // If the game is all-in but the street just started, return an empty list.
-        // The future game engine must catch this and fast-forward to showdown.
-        if (state.anyAllIn()) {
-            DEBUG_PRINT("Game is all-in. Returning empty list.");
-            return list;
-        }
-            
-        // Facing no bet and stacks are deep: always add Check
-        DEBUG_PRINT("Facing no bet, adding Check.");
         list.add(ActionType::CHECK, 0);
     }
-    
-    // BET AND RAISE ACTIONS
-    if (state.raiseCount >= MAX_RAISES) {
-        DEBUG_PRINT("Raise cap hit, now returning.");
-        return list;
+ 
+    // select the correct raise sizings relative to street
+    const int32_t* numerators   = nullptr;
+    const int32_t* denominators = nullptr;
+    int arraySize = 0;
+ 
+    if (state.raiseCount <= 1) {
+        if (state.isPreflop()) {
+            numerators   = PREFLOP_BET_NUMERATORS;
+            denominators = PREFLOP_BET_DENOMINATORS;
+            arraySize    = PREFLOP_BET_COUNT;
+        } else {
+            numerators   = POSTFLOP_BET_NUMERATORS;
+            denominators = POSTFLOP_BET_DENOMINATORS;
+            arraySize    = POSTFLOP_BET_COUNT;
+        }
+    } else {
+        // raiseCount is 2: need 3-bet sizings
+        numerators   = THREE_BET_NUMERATORS;
+        denominators = THREE_BET_DENOMINATORS;
+        arraySize    = THREE_BET_COUNT;
     }
-    
-    if (state.raiseCount == 3) {
-        DEBUG_PRINT("4-bet, only adding All-in.");
-        list.add(ActionType::RAISE, effectiveAllIn);
-        return list;
-    }
-    
+ 
+    // compute legal min raise
     int32_t minRaise = 0;
     if (toCall > 0) {
         minRaise = computeMinRaise(state.previousRaiseTotal, state.betBeforeRaise);
     } else {
-        minRaise = state.bigBlind; // absolute min raise is BB amount in Poker
+        minRaise = state.bigBlind;
     }
-    
-    // Select the correct size arrays based on state
-    const int32_t* numerators = nullptr;
-    const int32_t* denominators = nullptr;
-    int arraySize = 0;
-    
-    if (state.raiseCount <= 1) {
-        // Open (0) OR First Raise (1) uses the street's base sizes
-        if (state.isPreflop()) {
-            numerators = PREFLOP_BET_NUMERATORS;
-            denominators = PREFLOP_BET_DENOMINATORS;
-            arraySize = PREFLOP_BET_COUNT;
-        } else {
-            numerators = POSTFLOP_BET_NUMERATORS;
-            denominators = POSTFLOP_BET_DENOMINATORS;
-            arraySize = POSTFLOP_BET_COUNT;
-        }
-    } else {
-        // 3-Bet (state.raiseCount == 2) uses the universal 0.8x size
-        numerators = THREE_BET_NUMERATORS;
-        denominators = THREE_BET_DENOMINATORS;
-        arraySize = THREE_BET_COUNT;
-    }
-    
+ 
+    // Sizing slots — fixed count, amounts capped on all-in and floored to min-raise
     for (int i = 0; i < arraySize; ++i) {
         int32_t amount = computeAmount(
             numerators[i], denominators[i],
             state.potBase, state.villainStreetBet,
             state.heroStreetBet, effectiveAllIn
         );
-
         amount = std::max(amount, minRaise);
         amount = std::min(amount, effectiveAllIn);
         list.add(ActionType::RAISE, amount);
     }
-
-    // all-in is always the final dedicated slot
+ 
+    // all-in is always Nao's final dedicated slot
     list.add(ActionType::RAISE, effectiveAllIn);
-    
+ 
     return list;
 }
-
+ 
 }
