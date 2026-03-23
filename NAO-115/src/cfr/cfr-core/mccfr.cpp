@@ -49,6 +49,14 @@ float Trainer::traverseExternalSampling(const MCCFRState& state,
                                         const std::array<int, 2>& p1_hand,
                                         const std::array<int, 5>& board) {
     
+    static int mccfrNodeCount = 0;
+    if (traceMode && mccfrNodeCount < 20) {
+        printf("MCCFR NODE: street=%d player=%d raiseCount=%d hash=%llu\n",
+               state.street, state.currentPlayer, state.raiseCount,
+               (unsigned long long)state.historyHash);
+        mccfrNodeCount++;
+    }
+    
     // check whether game is terminal
     if (GameEngine::isGamestateTerminal(state)) {
         // Calculate chips won/lost from Player 0's perspective
@@ -156,28 +164,32 @@ void Trainer::train(int iterations) {
     totalIterations = iterations;
     std::cout << "Starting MCCFR Training for " << iterations << " iterations...\n";
     
-    std::vector<int> deck(52);
-    for(int i=0; i<52; ++i) deck[i] = i;
+    std::array<int, 52> deck;
+    for (int i = 0; i < 52; ++i) deck[i] = i;
     
     for (int i = 0; i < iterations; ++i) {
-        std::shuffle(deck.begin(), deck.end(), rng);
+            for (int j = 0; j < 9; ++j) {
+                int k = j + rng() % (52 - j);
+                std::swap(deck[j], deck[k]);
+            }
+        
         std::array<int, 2> p0_hand = {deck[0], deck[1]};
         std::array<int, 2> p1_hand = {deck[2], deck[3]};
         std::array<int, 5> board   = {deck[4], deck[5], deck[6], deck[7], deck[8]};
         
         MCCFRState rootState{};
         rootState.bigBlind = 100;
-        rootState.player0Contribution = 100;  // BB posted
-        rootState.player1Contribution = 50;   // SB posted
-        rootState.previousRaiseTotal = 100;
-        rootState.heroStack = 19950;
-        rootState.villainStack = 19900;
-        rootState.heroStreetBet = 50;
-        rootState.villainStreetBet = 100;
-        rootState.potBase = 0;
+        rootState.player0Contribution = 1000;
+        rootState.player1Contribution = 1000;
+        rootState.previousRaiseTotal = 0;
+        rootState.heroStack = 9000;
+        rootState.villainStack = 9000;
+        rootState.heroStreetBet = 0;
+        rootState.villainStreetBet = 0;
+        rootState.potBase = 2000;
         rootState.betBeforeRaise = 0;
-        rootState.currentPlayer = 1;
-        rootState.street = 0;
+        rootState.currentPlayer = 0;
+        rootState.street = 1;
         rootState.raiseCount = 0;
         rootState.isTerminal = false;
         rootState.foldedPlayer = -1;
