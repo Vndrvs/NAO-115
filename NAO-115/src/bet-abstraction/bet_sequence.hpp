@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cstdint>
-#include "cfr/mccfr_state.hpp"
+#include "cfr/cfr-core/mccfr_state.hpp"
 #include "bet_utils.hpp"
 
 namespace BetAbstraction {

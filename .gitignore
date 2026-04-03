@@ -88,3 +88,4 @@ CMakeLists.txt.user
 
 # Ignore output log files
 **/output/logs/
+node_budget_h2h.txt

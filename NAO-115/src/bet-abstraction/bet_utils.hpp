@@ -32,6 +32,20 @@ constexpr int32_t RAISE_NUMERATORS[] = {1, 1, 2};
 constexpr int32_t RAISE_DENOMINATORS[] = {2, 1, 1};
 constexpr int RAISE_COUNT = 3;
 
+struct BetConfig {
+    int32_t flop_numerators[3]   = {1, 1, 2};
+    int32_t flop_denominators[3] = {2, 1, 1};
+
+    int32_t turn_numerators[3]   = {1, 1, 2};
+    int32_t turn_denominators[3] = {2, 1, 1};
+
+    int32_t river_numerators[3]   = {1, 1, 2};
+    int32_t river_denominators[3] = {2, 1, 1};
+};
+
+// config which is set by evaluator before calling train
+extern BetConfig g_betConfig;
+
 // 3-bets (facing a raise): 0.8x pot
 constexpr int32_t THREE_BET_NUMERATORS[] = {4};
 constexpr int32_t THREE_BET_DENOMINATORS[] = {5}; // 4/5 = 0.8

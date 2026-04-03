@@ -2,7 +2,7 @@
 
 #include <array>
 #include <cstdint>
-#include "cfr/mccfr_state.hpp"
+#include "cfr/cfr-core/mccfr_state.hpp"
 
 namespace StateEncoder {
 

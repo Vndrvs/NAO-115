@@ -1,5 +1,5 @@
 #include "state_encoder.hpp"
-#include "cfr/mccfr_state.hpp"
+#include "cfr/cfr-core/mccfr_state.hpp"
 #include <array>
 
 namespace StateEncoder {

@@ -72,9 +72,26 @@ ActionList getLegalActions(const MCCFRState& state) {
             denominators = PREFLOP_BET_DENOMINATORS;
             arraySize    = PREFLOP_BET_COUNT;
         } else {
-            numerators   = POSTFLOP_BET_NUMERATORS;
-            denominators = POSTFLOP_BET_DENOMINATORS;
-            arraySize    = POSTFLOP_BET_COUNT;
+            // select street-specific sizes from global config
+            switch (state.street) {
+                case 1:  // flop
+                    numerators   = g_betConfig.flop_numerators;
+                    denominators = g_betConfig.flop_denominators;
+                    break;
+                case 2:  // turn
+                    numerators   = g_betConfig.turn_numerators;
+                    denominators = g_betConfig.turn_denominators;
+                    break;
+                case 3:  // river
+                    numerators   = g_betConfig.river_numerators;
+                    denominators = g_betConfig.river_denominators;
+                    break;
+                default:
+                    numerators   = POSTFLOP_BET_NUMERATORS;
+                    denominators = POSTFLOP_BET_DENOMINATORS;
+                    break;
+            }
+            arraySize = POSTFLOP_BET_COUNT;
         }
     } else {
         // raiseCount is 2: need 3-bet sizings
